@@ -1,0 +1,63 @@
+{% extends 'shop/base.html' %}
+
+{% block title %}{{ product.name }} - TechMobi{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'shop:home' %}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'shop:product_list' %}">Products</a></li>
+            <li class="breadcrumb-item active">{{ product.name }}</li>
+        </ol>
+    </nav>
+
+    <div class="row g-5">
+        <div class="col-md-6">
+            {% if product.image %}
+            <img src="{{ product.image.url }}" class="img-fluid detail-image" alt="{{ product.name }}">
+            {% else %}
+            <div class="detail-image d-flex align-items-center justify-content-center" style="height: 350px;">
+                <i class="bi bi-phone" style="font-size: 6rem; color: #ccc;"></i>
+            </div>
+            {% endif %}
+        </div>
+        <div class="col-md-6">
+            {% if product.category %}
+            <span class="badge bg-secondary mb-2">{{ product.category.name }}</span>
+            {% endif %}
+            <h1 class="fw-bold">{{ product.name }}</h1>
+
+            <div class="my-3">
+                <span class="fs-3 price-tag">Tk {{ product.discounted_price }}</span>
+                {% if product.discount_percent %}
+                <span class="old-price fs-5 ms-2">Tk {{ product.price }}</span>
+                <span class="badge badge-discount ms-2">-{{ product.discount_percent }}% OFF</span>
+                {% endif %}
+            </div>
+
+            <p class="text-muted">{{ product.description|default:"No description available." }}</p>
+
+            <p>
+                <strong>Available Quantity:</strong>
+                {% if product.in_stock %}
+                <span class="badge badge-stock">{{ product.quantity }} in stock</span>
+                {% else %}
+                <span class="badge badge-outstock">Out of stock</span>
+                {% endif %}
+            </p>
+
+            <form method="post" action="{% url 'shop:add_to_cart' product.pk %}" class="mt-4">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{% url 'shop:product_detail' product.pk %}">
+                <button type="submit" class="btn btn-techmobi btn-lg" {% if not product.in_stock %}disabled{% endif %}>
+                    <i class="bi bi-cart-plus"></i> Add to Cart
+                </button>
+                <a href="{% url 'shop:product_list' %}" class="btn btn-outline-techmobi btn-lg ms-2">
+                    <i class="bi bi-arrow-left"></i> Back to Products
+                </a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

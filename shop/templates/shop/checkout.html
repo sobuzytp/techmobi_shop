@@ -1,0 +1,73 @@
+{% extends 'shop/base.html' %}
+
+{% block title %}Checkout - TechMobi{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <h2 class="fw-bold mb-4"><i class="bi bi-bag-check"></i> Checkout</h2>
+
+    <div class="row g-5">
+        <div class="col-md-7">
+            <div class="card p-4 border-0 shadow-sm">
+                <h5 class="mb-3">Delivery Information</h5>
+                <form method="post" class="needs-validation" novalidate>
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.name.id_for_label }}">Customer Name</label>
+                        {{ form.name }}
+                        <div class="invalid-feedback">Please enter your full name.</div>
+                        {% for error in form.name.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.phone.id_for_label }}">Phone Number</label>
+                        {{ form.phone }}
+                        <div class="invalid-feedback">Please enter a valid phone number.</div>
+                        {% for error in form.phone.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label" for="{{ form.address.id_for_label }}">Address</label>
+                        {{ form.address }}
+                        <div class="invalid-feedback">Please enter your delivery address.</div>
+                        {% for error in form.address.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    </div>
+
+                    <button type="submit" class="btn btn-techmobi btn-lg w-100">
+                        <i class="bi bi-check2-circle"></i> Place Order
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-md-5">
+            <div class="card p-4 border-0 shadow-sm">
+                <h5 class="mb-3">Order Summary</h5>
+                <ul class="list-group list-group-flush mb-3">
+                    {% for item in items %}
+                    <li class="list-group-item d-flex justify-content-between px-0">
+                        <span>{{ item.product.name }} &times; {{ item.quantity }}</span>
+                        <span>Tk {{ item.line_total }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                <div class="d-flex justify-content-between fw-bold fs-5">
+                    <span>Total</span>
+                    <span class="price-tag">Tk {{ grand_total }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Required for Bootstrap's built-in validation styles to apply to Django-rendered inputs.
+    document.querySelectorAll('.needs-validation input, .needs-validation textarea').forEach(function (el) {
+        el.classList.add('form-control');
+        el.setAttribute('required', 'required');
+    });
+</script>
+{% endblock %}

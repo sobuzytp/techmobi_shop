@@ -1,0 +1,95 @@
+{% extends 'shop/base.html' %}
+{% load static %}
+
+{% block title %}TechMobi - Best Mobile Phones & Accessories{% endblock %}
+
+{% block content %}
+
+<!-- Bootstrap Banner -->
+<section class="hero-banner">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-7">
+                <h1 class="display-4">Welcome to <span class="text-warning">TechMobi</span></h1>
+                <p class="lead">Your one-stop shop for the latest smartphones, tablets, and mobile accessories
+                    — genuine products, best prices, fast delivery.</p>
+                <a href="{% url 'shop:product_list' %}" class="btn btn-shop btn-lg mt-2">
+                    <i class="bi bi-bag-check"></i> Shop Now
+                </a>
+            </div>
+            <div class="col-lg-5 text-center d-none d-lg-block">
+                <i class="bi bi-phone" style="font-size: 12rem; opacity: 0.25;"></i>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Product Categories -->
+<section class="container py-5">
+    <h2 class="fw-bold mb-4 text-center">Shop by Category</h2>
+    <div class="row g-4">
+        {% for category in categories %}
+        <div class="col-6 col-md-3">
+            <a href="{% url 'shop:product_list' %}?category={{ category.id }}" class="text-decoration-none">
+                <div class="card category-card text-center py-4 h-100">
+                    <i class="bi bi-phone category-icon"></i>
+                    <h6 class="mt-2 text-dark fw-semibold">{{ category.name }}</h6>
+                </div>
+            </a>
+        </div>
+        {% empty %}
+        <div class="col-12 text-center text-muted">
+            Categories will appear here once added from the Django Admin.
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<!-- Featured Products -->
+<section class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold mb-0">Featured Products</h2>
+        <a href="{% url 'shop:product_list' %}" class="btn btn-outline-techmobi btn-sm">View All &rarr;</a>
+    </div>
+    <div class="row g-4">
+        {% for product in featured_products %}
+        <div class="col-6 col-md-4 col-lg-3">
+            <div class="card product-card">
+                {% if product.image %}
+                <img src="{{ product.image.url }}" class="card-img-top" alt="{{ product.name }}">
+                {% else %}
+                <div class="card-img-top d-flex align-items-center justify-content-center">
+                    <i class="bi bi-phone" style="font-size: 3rem; color: #ccc;"></i>
+                </div>
+                {% endif %}
+                <div class="card-body d-flex flex-column">
+                    <h6 class="card-title fw-semibold">{{ product.name }}</h6>
+                    <p class="card-text text-muted small flex-grow-1">{{ product.description|truncatewords:10 }}</p>
+                    <div class="mb-2">
+                        <span class="price-tag">Tk {{ product.discounted_price }}</span>
+                        {% if product.discount_percent %}
+                        <span class="old-price ms-1">Tk {{ product.price }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'shop:product_detail' product.pk %}" class="btn btn-outline-techmobi btn-sm">View Details</a>
+                        <form method="post" action="{% url 'shop:add_to_cart' product.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{% url 'shop:home' %}">
+                            <button type="submit" class="btn btn-techmobi btn-sm w-100">
+                                <i class="bi bi-cart-plus"></i> Add to Cart
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12 text-center text-muted">
+            No products yet. Add some from the Django Admin panel!
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends 'shop/base.html' %}
+
+{% block title %}Order Placed - TechMobi{% endblock %}
+
+{% block content %}
+<div class="container py-5 text-center">
+    <i class="bi bi-check-circle-fill success-icon"></i>
+    <h1 class="fw-bold mt-3">Order Placed Successfully!</h1>
+    <p class="text-muted fs-5">
+        {% if customer_name %}Thank you, {{ customer_name }}! {% endif %}
+        Your order has been received and will be processed shortly.
+    </p>
+    {% if grand_total %}
+    <p class="fs-5">Order Total: <span class="price-tag">Tk {{ grand_total }}</span></p>
+    {% endif %}
+    <a href="{% url 'shop:product_list' %}" class="btn btn-techmobi btn-lg mt-3">
+        <i class="bi bi-bag"></i> Continue Shopping
+    </a>
+</div>
+{% endblock %}
