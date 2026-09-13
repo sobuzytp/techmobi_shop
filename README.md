@@ -66,7 +66,7 @@ techmobi_project/
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/<your-username>/single-vendor-ecommerce.git
+git clone https://github.com/sobuzytp/techmobi_shop.git
 cd single-vendor-ecommerce
 ```
 
