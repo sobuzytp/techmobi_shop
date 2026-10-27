@@ -72,9 +72,12 @@ class CartTests(TestCase):
 @override_settings(DELIVERY_CHARGES={'inside': 60, 'outside': 120})
 class CheckoutTests(TestCase):
     def setUp(self):
+        from django.contrib.auth import get_user_model
         self.p1 = make_product('A', '1000', 5)
         self.p2 = make_product('B', '500', 3, discount_percent=10)
         self.url = reverse('shop:checkout')
+        self.user = get_user_model().objects.create_user('01600000000', password='S3cure-pass-91')
+        self.client.force_login(self.user)
 
     def fill_cart(self):
         self.client.post(reverse('shop:add_to_cart', args=[self.p1.pk]))
@@ -288,10 +291,21 @@ class AccountTests(TestCase):
         self.assertEqual(self.client.get(reverse('shop:my_order_detail', args=[order.order_number])).status_code, 404)
         self.assertEqual(list(self.client.get(reverse('shop:my_orders')).context['orders']), [])
 
-    def test_guest_checkout_still_works(self):
+    def test_checkout_requires_login(self):
         product = make_product(quantity=5)
         self.client.post(reverse('shop:add_to_cart', args=[product.pk]))
-        self.client.post(reverse('shop:checkout'), {
+        resp = self.client.get(reverse('shop:checkout'))
+        self.assertRedirects(resp, reverse('shop:login') + '?next=/checkout/')
+        resp = self.client.post(reverse('shop:checkout'), {
             'name': 'Guest', 'phone': '01512345678', 'address': 'Dhaka',
             'delivery_area': 'outside', 'payment_method': 'cod', 'note': ''})
-        self.assertIsNone(Order.objects.get().user)
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(Order.objects.count(), 0)
+
+    def test_guest_can_still_use_cart_and_is_sent_back_to_checkout_after_login(self):
+        product = make_product(quantity=5)
+        self.client.post(reverse('shop:add_to_cart', args=[product.pk]))
+        self.assertEqual(self.client.get(reverse('shop:cart')).status_code, 200)
+        self.client.post(reverse('shop:signup'), self.signup_data(next='/checkout/'))
+        self.assertEqual(self.client.get(reverse('shop:checkout')).status_code, 200)
+        self.assertEqual(self.client.session['cart'], {str(product.pk): 1})

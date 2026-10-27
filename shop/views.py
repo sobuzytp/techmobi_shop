@@ -233,6 +233,7 @@ def cart_view(request):
     })
 
 
+@login_required
 def checkout(request):
     items, subtotal = _cart_items(request)
 
