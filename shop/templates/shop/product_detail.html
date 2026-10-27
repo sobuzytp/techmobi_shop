@@ -44,6 +44,7 @@
             {% if product.category %}
             <span class="badge bg-secondary mb-2">{{ product.category.name }}</span>
             {% endif %}
+            {% if product.condition != 'new' %}<span class="badge bg-warning text-dark mb-2">{{ product.get_condition_display }}</span>{% endif %}
             <h1 class="fw-bold">{{ product.name }}</h1>
 
             {% if rating.count %}
@@ -63,6 +64,8 @@
                 {% endif %}
             </div>
 
+            {% if product.warranty_months %}<p class="mb-2"><i class="bi bi-shield-check text-success"></i> <strong>{{ product.warranty_label }} warranty</strong>
+                <a href="{% url 'shop:page' 'warranty-policy' %}" class="small">(policy)</a></p>{% endif %}
             <p class="text-muted">{{ product.description|default:"No description available." }}</p>
 
             <p>

@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import login
+from django.contrib.auth.views import LoginView
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
@@ -17,14 +18,21 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from . import services
-from .forms import CheckoutForm, ReviewForm, SignupForm, TrackOrderForm
+from . import ratelimit, services
+from .forms import CheckoutForm, PhoneLoginForm, ReviewForm, SignupForm, TrackOrderForm, normalize_phone
 from .models import (
-    Banner, BlockedPhone, Category, Coupon, Customer, Order, OrderItem, Product, Review,
+    Banner, BlockedPhone, Category, Coupon, Customer, Order, OrderItem, Page, Product, Review,
     ShopSettings, Wishlist,
 )
 
 CART_SESSION_KEY = 'cart'
+
+# Rate limits: (attempts, window in seconds)
+LOGIN_PHONE_LIMIT = (5, 15 * 60)    # failed logins for one phone number
+LOGIN_IP_LIMIT = (30, 15 * 60)      # failed logins from one address (generous: shops share IPs)
+SIGNUP_IP_LIMIT = (8, 60 * 60)
+TRACK_IP_LIMIT = (20, 15 * 60)
+COUPON_IP_LIMIT = (15, 15 * 60)     # wrong coupon codes
 
 
 # ---------- helpers ----------
@@ -315,8 +323,13 @@ def cart_view(request):
 def apply_coupon(request):
     code = request.POST.get('code', '').strip().upper()
     _, subtotal = _cart_items(request)
+    ip_key = ratelimit.make_key('coupon-ip', ratelimit.client_ip(request))
+    if ratelimit.is_limited(ip_key, *COUPON_IP_LIMIT):
+        messages.error(request, "Too many wrong coupon codes. Please try again later.")
+        return redirect('shop:cart')
     coupon = Coupon.objects.filter(code=code).first() if code else None
     if coupon is None:
+        ratelimit.record(ip_key, COUPON_IP_LIMIT[1])
         messages.error(request, "That coupon code is not valid.")
     else:
         ok, message = coupon.validate_for(subtotal, request.user)
@@ -475,6 +488,7 @@ def _place_order(request, form):
                 unit_price=product.discounted_price,
                 quantity=qty,
                 line_total=line_total,
+                warranty_months=product.warranty_months,
             )
             product.quantity -= qty
             product.save(update_fields=['quantity'])
@@ -495,6 +509,13 @@ def track_order(request):
     order = None
     if request.method == 'POST':
         form = TrackOrderForm(request.POST)
+        ip_key = ratelimit.make_key('track-ip', ratelimit.client_ip(request))
+        if ratelimit.is_limited(ip_key, *TRACK_IP_LIMIT):
+            form.add_error(None, "Too many attempts. Please wait a few minutes and try again.")
+            response = render(request, 'shop/track_order.html', {'form': form, 'order': None})
+            response.status_code = 429
+            return response
+        ratelimit.record(ip_key, TRACK_IP_LIMIT[1])
         if form.is_valid():
             order = (Order.objects
                      .filter(order_number=form.cleaned_data['order_number'],
@@ -517,6 +538,14 @@ def signup(request):
     if request.user.is_authenticated:
         return redirect('shop:home')
     form = SignupForm(request.POST or None)
+    if request.method == 'POST':
+        ip_key = ratelimit.make_key('signup-ip', ratelimit.client_ip(request))
+        if ratelimit.is_limited(ip_key, *SIGNUP_IP_LIMIT):
+            messages.error(request, "Too many sign-up attempts. Please try again later.")
+            response = render(request, 'shop/signup.html', {'form': SignupForm(), 'next': request.GET.get('next', '')})
+            response.status_code = 429
+            return response
+        ratelimit.record(ip_key, SIGNUP_IP_LIMIT[1])
     if request.method == 'POST' and form.is_valid():
         user = form.save()
         login(request, user)
@@ -642,6 +671,7 @@ def dashboard(request):
                          .order_by('-qty')[:5]),
         'recent_orders': Order.objects.select_related('customer')[:10],
         'customer_count': Customer.objects.count(),
+        'visitor_ip': ratelimit.client_ip(request),
     })
 
 
@@ -654,3 +684,41 @@ def invoice(request, order_number):
 
 def server_error(request):
     return render(request, 'shop/500.html', status=500)
+
+
+class ThrottledLoginView(LoginView):
+    """Login with phone + password; locks a phone number after too many wrong passwords."""
+    template_name = 'shop/login.html'
+    authentication_form = PhoneLoginForm
+    redirect_authenticated_user = True
+
+    def _keys(self):
+        phone = normalize_phone(self.request.POST.get('username', ''))
+        return (ratelimit.make_key('login-phone', phone),
+                ratelimit.make_key('login-ip', ratelimit.client_ip(self.request)))
+
+    def post(self, request, *args, **kwargs):
+        phone_key, ip_key = self._keys()
+        if ratelimit.is_limited(phone_key, *LOGIN_PHONE_LIMIT) or ratelimit.is_limited(ip_key, *LOGIN_IP_LIMIT):
+            messages.error(request, "Too many failed attempts. Please wait 15 minutes and try again.")
+            response = self.render_to_response(self.get_context_data(form=PhoneLoginForm(request=request)))
+            response.status_code = 429
+            return response
+        return super().post(request, *args, **kwargs)
+
+    def form_invalid(self, form):
+        phone_key, ip_key = self._keys()
+        ratelimit.record(phone_key, LOGIN_PHONE_LIMIT[1])
+        ratelimit.record(ip_key, LOGIN_IP_LIMIT[1])
+        return super().form_invalid(form)
+
+    def form_valid(self, form):
+        ratelimit.reset(self._keys()[0])
+        return super().form_valid(form)
+
+
+# ---------- text pages ----------
+
+def page_detail(request, slug):
+    page = get_object_or_404(Page, slug=slug, is_published=True)
+    return render(request, 'shop/page.html', {'page': page})

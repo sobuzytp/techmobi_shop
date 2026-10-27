@@ -100,5 +100,9 @@
             </div>
         </div>
     </div>
+    <p class="text-muted small mt-4">
+        Your address as the server sees it: <code>{{ visitor_ip }}</code>. Rate limits use this value; if it is the same for
+        every visitor (e.g. 127.0.0.1) the shop is behind a proxy, so set <code>DJANGO_CLIENT_IP_HEADER</code>.
+    </p>
 </div>
 {% endblock %}

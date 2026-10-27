@@ -144,6 +144,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 DELIVERY_CHARGES = {'inside': 60, 'outside': 120}
 PRODUCTS_PER_PAGE = 12
 
+# Where the visitor's IP address is read from for rate limiting. Leave empty to use REMOTE_ADDR.
+# Behind a proxy/CDN, e.g. DJANGO_CLIENT_IP_HEADER=HTTP_X_FORWARDED_FOR or HTTP_CF_CONNECTING_IP
+CLIENT_IP_HEADER = os.environ.get('DJANGO_CLIENT_IP_HEADER', '')
+
 # Accounts
 LOGIN_URL = 'shop:login'
 LOGIN_REDIRECT_URL = 'shop:home'

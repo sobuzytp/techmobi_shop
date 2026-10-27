@@ -66,6 +66,7 @@
                     {% if product.discount_percent %}
                     <span class="badge badge-discount mb-2 align-self-start">-{{ product.discount_percent }}%</span>
                     {% endif %}
+                    {% if product.condition != 'new' %}<span class="badge bg-warning text-dark mb-2 align-self-start">{{ product.get_condition_display }}</span>{% endif %}
                     <h6 class="card-title fw-semibold">{{ product.name }}</h6>
                     <p class="card-text text-muted small flex-grow-1">{{ product.description|truncatewords:10 }}</p>
                     <div class="mb-2">

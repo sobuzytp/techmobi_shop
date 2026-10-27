@@ -104,14 +104,19 @@
                     <li><a href="{% url 'shop:product_list' %}" class="footer-link">Products</a></li>
                     <li><a href="{% url 'shop:cart' %}" class="footer-link">Cart</a></li>
                     <li><a href="{% url 'shop:track_order' %}" class="footer-link">Track Order</a></li>
+                    {% for fp in footer_pages %}
+                    <li><a href="{% url 'shop:page' fp.slug %}" class="footer-link">{{ fp.title }}</a></li>
+                    {% endfor %}
                 </ul>
             </div>
             <div class="col-md-4 mb-4">
                 <h5>Contact Us</h5>
                 <ul class="list-unstyled text-white-50">
-                    <li><i class="bi bi-geo-alt"></i> Khulna, Bangladesh</li>
-                    <li><i class="bi bi-telephone"></i> +880 1601642548</li>
-                    <li><i class="bi bi-envelope"></i> support@techmobi.abrakadabra.sobuj</li>
+                    <li><i class="bi bi-geo-alt"></i> {{ shop_settings.shop_address }}</li>
+                    <li><i class="bi bi-telephone"></i> {{ shop_settings.shop_phone }}</li>
+                    <li><i class="bi bi-envelope"></i> {{ shop_settings.shop_email }}</li>
+                    {% if shop_settings.opening_hours %}<li><i class="bi bi-clock"></i> {{ shop_settings.opening_hours }}</li>{% endif %}
+                    {% if shop_settings.facebook_url %}<li><i class="bi bi-facebook"></i> <a href="{{ shop_settings.facebook_url }}" class="footer-link" target="_blank" rel="noopener">Facebook</a></li>{% endif %}
                 </ul>
             </div>
         </div>

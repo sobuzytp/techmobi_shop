@@ -25,3 +25,5 @@ staticfiles/
 # OS
 .DS_Store
 Thumbs.db
+# Backups (if you point `backup_data --dir` inside the project)
+backups/

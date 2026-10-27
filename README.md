@@ -32,6 +32,8 @@ quantities, and check out — with the order saved to the database.
 - **Order management**: customers can cancel Pending orders (stock is restored), order status timeline, admin bulk status actions, call-confirmed flag, CSV export, printable invoice, blocked phone numbers
 - **Sales dashboard** at `/dashboard/` (staff only): today/month sales, 7-day chart, pending orders, low stock, top products
 - **Shop settings** in the admin: delivery charges, free-delivery threshold, minimum order, low-stock level, WhatsApp number
+- **Warranty, condition and IMEI/serial** on products and invoices; editable **text pages** (About, Contact, Return, Warranty, Privacy, Terms) and contact details from the admin
+- **Rate limiting** on login, sign-up, order tracking and coupon guessing; daily `backup_data` command
 - SEO: meta/Open Graph tags, `sitemap.xml`, `robots.txt`
 - **Accounts**: sign up / log in with phone number + password, "My Orders" history, checkout prefilled from your account and last order (an account is required to place an order; browsing and the cart work without one)
 
@@ -143,11 +145,28 @@ Environment variables (all optional for local development):
 | `DJANGO_ALLOWED_HOSTS` | Comma-separated hosts, required when `DJANGO_DEBUG=0`. |
 | `DJANGO_SERVE_MEDIA` | `1` lets Django serve `/media/` when `DJANGO_DEBUG=0` (if your web server does not). |
 | `DJANGO_BEHIND_PROXY` | `1` if the host terminates HTTPS and sends `X-Forwarded-Proto`. |
+| `DJANGO_CLIENT_IP_HEADER` | Where to read the visitor IP for rate limits behind a proxy/CDN (`HTTP_X_FORWARDED_FOR`, `HTTP_CF_CONNECTING_IP`). The staff dashboard shows the IP the server sees. |
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | Optional, e.g. `https://tech-mobi.notte.top`. |
 
 Delivery charges, free-delivery threshold and minimum order are edited in the admin under **Shop settings** (`DELIVERY_CHARGES` in `techmobi/settings.py` only supplies the first defaults).
 
 With `DJANGO_DEBUG=0`, session and CSRF cookies are marked Secure (HTTPS only).
+
+## Backups
+
+```bash
+python manage.py backup_data            # db + media -> ../techmobi-backups/techmobi-backup-<date>.zip
+python manage.py backup_data --keep 30  # keep the newest 30 (default 14)
+```
+
+Run it every day from cron (cPanel -> Cron Jobs), e.g. at 03:00:
+
+```
+0 3 * * * /home/USER/virtualenv/APP/3.11/bin/python /home/USER/APP/manage.py backup_data
+```
+
+Download a copy now and then and keep it somewhere other than the server. To restore, unzip, put `db.sqlite3`
+back in the project folder and the `media/` folder next to it.
 
 ## Tests
 
