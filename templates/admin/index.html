@@ -1,0 +1,7 @@
+{% extends "admin/index.html" %}
+{% block content %}
+<p style="margin: 0 0 12px;">
+    <a href="{% url 'shop:dashboard' %}" class="button">Open sales dashboard</a>
+</p>
+{{ block.super }}
+{% endblock %}

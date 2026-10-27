@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>Invoice {{ order.order_number }} - TechMobi</title>
+    <style>
+        body { font-family: Arial, sans-serif; color: #111; max-width: 780px; margin: 24px auto; padding: 0 16px; }
+        h1 { margin: 0; } .muted { color: #555; font-size: 13px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+        th, td { padding: 8px; border-bottom: 1px solid #ddd; text-align: left; }
+        td.num, th.num { text-align: right; }
+        .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+        .totals { margin-left: auto; width: 280px; margin-top: 12px; }
+        .totals div { display: flex; justify-content: space-between; padding: 3px 0; }
+        .grand { font-weight: bold; font-size: 18px; border-top: 2px solid #111; margin-top: 4px; padding-top: 6px !important; }
+        button { padding: 8px 16px; margin-bottom: 16px; }
+        @media print { button { display: none; } }
+    </style>
+</head>
+<body>
+    <button onclick="window.print()">Print</button>
+    <div class="head">
+        <div>
+            <h1>TechMobi</h1>
+            <div class="muted">Khulna, Bangladesh<br>+880 1601642548</div>
+        </div>
+        <div style="text-align:right">
+            <h2 style="margin:0">INVOICE</h2>
+            <div>#{{ order.order_number }}</div>
+            <div class="muted">{{ order.order_date|date:"d M Y, H:i" }}</div>
+            <div class="muted">Status: {{ order.get_status_display }}</div>
+        </div>
+    </div>
+
+    <p><strong>Bill to / Deliver to</strong><br>
+        {{ order.customer.name }}<br>
+        {{ order.customer.phone }}<br>
+        {{ order.delivery_address|linebreaksbr }}<br>
+        <span class="muted">{{ order.get_delivery_area_display }}</span></p>
+    {% if order.note %}<p class="muted">Note: {{ order.note }}</p>{% endif %}
+
+    <table>
+        <thead><tr><th>Item</th><th class="num">Price</th><th class="num">Qty</th><th class="num">Total</th></tr></thead>
+        <tbody>
+            {% for item in order.items.all %}
+            <tr><td>{{ item.product_name }}</td><td class="num">Tk {{ item.unit_price }}</td><td class="num">{{ item.quantity }}</td><td class="num">Tk {{ item.line_total }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="totals">
+        <div><span>Subtotal</span><span>Tk {{ order.subtotal }}</span></div>
+        {% if order.discount_amount %}<div><span>Discount ({{ order.coupon_code }})</span><span>- Tk {{ order.discount_amount }}</span></div>{% endif %}
+        <div><span>Delivery</span><span>Tk {{ order.delivery_charge }}</span></div>
+        <div class="grand"><span>Total to pay</span><span>Tk {{ order.total_price }}</span></div>
+    </div>
+    <p class="muted">Payment: {{ order.get_payment_method_display }}. Please pay the delivery person when you receive the order.</p>
+</body>
+</html>

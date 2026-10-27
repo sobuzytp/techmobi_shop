@@ -24,6 +24,30 @@
     </div>
 </section>
 
+{% if banners %}
+<section class="container mt-4">
+    <div id="offerBanners" class="carousel slide" data-bs-ride="carousel">
+        <div class="carousel-inner rounded-3 overflow-hidden">
+            {% for banner in banners %}
+            <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                <a href="{{ banner.link|default:'#' }}" class="text-decoration-none">
+                    <div class="offer-banner text-white d-flex flex-column justify-content-center px-4 px-md-5"
+                         {% if banner.image %}style="background-image: linear-gradient(90deg, rgba(13,27,61,.85), rgba(13,27,61,.2)), url('{{ banner.image.url }}');"{% endif %}>
+                        <h3 class="fw-bold mb-1">{{ banner.title }}</h3>
+                        {% if banner.subtitle %}<p class="mb-0">{{ banner.subtitle }}</p>{% endif %}
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+        {% if banners|length > 1 %}
+        <button class="carousel-control-prev" type="button" data-bs-target="#offerBanners" data-bs-slide="prev"><span class="carousel-control-prev-icon"></span></button>
+        <button class="carousel-control-next" type="button" data-bs-target="#offerBanners" data-bs-slide="next"><span class="carousel-control-next-icon"></span></button>
+        {% endif %}
+    </div>
+</section>
+{% endif %}
+
 <!-- Product Categories -->
 <section class="container py-5">
     <h2 class="fw-bold mb-4 text-center">Shop by Category</h2>

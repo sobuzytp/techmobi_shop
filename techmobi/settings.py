@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sitemaps',
     'shop',
 ]
 
@@ -64,7 +65,7 @@ ROOT_URLCONF = 'techmobi.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -87,6 +88,9 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+        # Take the write lock when a transaction starts, so two customers ordering the last
+        # item at the same moment are handled one after the other (SQLite ignores select_for_update).
+        'OPTIONS': {'transaction_mode': 'IMMEDIATE', 'timeout': 20},
     }
 }
 
@@ -115,7 +119,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Dhaka'
 
 USE_I18N = True
 
@@ -144,6 +148,25 @@ PRODUCTS_PER_PAGE = 12
 LOGIN_URL = 'shop:login'
 LOGIN_REDIRECT_URL = 'shop:home'
 LOGOUT_REDIRECT_URL = 'shop:home'
+
+
+# Security (only when DEBUG is off, i.e. on the live site over HTTPS)
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    # Set DJANGO_BEHIND_PROXY=1 only if your host terminates HTTPS and forwards X-Forwarded-Proto.
+    if os.environ.get('DJANGO_BEHIND_PROXY') == '1':
+        SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    # Optional: comma-separated, e.g. DJANGO_CSRF_TRUSTED_ORIGINS=https://tech-mobi.notte.top
+    CSRF_TRUSTED_ORIGINS = [
+        o.strip() for o in os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()
+    ]
+
+# With DEBUG off Django does not serve uploaded files. Set DJANGO_SERVE_MEDIA=1 to let Django
+# serve /media/ itself (fine for a small shop when the web server is not already doing it).
+SERVE_MEDIA = DEBUG or os.environ.get('DJANGO_SERVE_MEDIA') == '1'
+
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration

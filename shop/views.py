@@ -1,19 +1,28 @@
+from datetime import timedelta
 from decimal import Decimal, InvalidOperation
+from urllib.parse import quote
 
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import DecimalField, ExpressionWrapper, F, Q, Value
+from django.db.models import Avg, Count, DecimalField, ExpressionWrapper, F, Q, Sum, Value
+from django.db.models.functions import TruncDate
+from django.utils import timezone
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from .forms import CheckoutForm, SignupForm, TrackOrderForm
-from .models import Category, Customer, Order, OrderItem, Product
+from . import services
+from .forms import CheckoutForm, ReviewForm, SignupForm, TrackOrderForm
+from .models import (
+    Banner, BlockedPhone, Category, Coupon, Customer, Order, OrderItem, Product, Review,
+    ShopSettings, Wishlist,
+)
 
 CART_SESSION_KEY = 'cart'
 
@@ -72,6 +81,37 @@ def _safe_next(request, fallback):
     return fallback
 
 
+def _session_coupon(request, subtotal):
+    """The coupon saved in the session, if it is still valid for this cart (else it is dropped)."""
+    code = request.session.get('coupon')
+    if not code:
+        return None
+    coupon = Coupon.objects.filter(code=code).first()
+    ok, message = (False, "Coupon not found.") if coupon is None else coupon.validate_for(subtotal, request.user)
+    if not ok:
+        request.session.pop('coupon', None)
+        messages.warning(request, f'Coupon {code} was removed: {message}')
+        return None
+    return coupon
+
+
+def _quote(request, subtotal, area='inside'):
+    """Price breakdown for the current cart: discount, delivery and total."""
+    shop = ShopSettings.load()
+    coupon = _session_coupon(request, subtotal)
+    discount = coupon.discount_for(subtotal) if coupon else Decimal('0.00')
+    after_discount = subtotal - discount
+    delivery = shop.delivery_charge_for(area, after_discount)
+    return {
+        'shop': shop,
+        'coupon': coupon,
+        'discount': discount,
+        'delivery_charge': delivery,
+        'total': after_discount + delivery,
+        'below_minimum': bool(shop.min_order_amount) and after_discount < shop.min_order_amount,
+    }
+
+
 # ---------- pages ----------
 
 def home(request):
@@ -82,6 +122,7 @@ def home(request):
     return render(request, 'shop/home.html', {
         'categories': categories,
         'featured_products': featured_products,
+        'banners': Banner.objects.filter(is_active=True),
     })
 
 
@@ -169,11 +210,44 @@ def product_detail(request, pk):
     related = Product.objects.exclude(pk=product.pk)
     if product.category_id:
         related = related.filter(category_id=product.category_id)
+
+    reviews = product.reviews.filter(is_visible=True).select_related('user')
+    rating = reviews.aggregate(average=Avg('rating'), count=Count('id'))
+
+    user = request.user
+    can_review = my_review = wishlisted = False
+    if user.is_authenticated:
+        can_review = OrderItem.objects.filter(
+            order__user=user, order__status='delivered', product=product).exists()
+        my_review = Review.objects.filter(user=user, product=product).first()
+        wishlisted = Wishlist.objects.filter(user=user, product=product).exists()
+
+    # Recently viewed (kept in the session, newest first, current product excluded from the list)
+    recent_ids = [i for i in request.session.get('recent', []) if i != product.pk]
+    recent_products = Product.objects.in_bulk(recent_ids[:4])
+    request.session['recent'] = ([product.pk] + recent_ids)[:6]
+
+    shop = ShopSettings.load()
+    whatsapp_url = ''
+    if shop.whatsapp_number:
+        text = (f"Hello, I want to order {product.name} (Tk {product.discounted_price}). "
+                f"{request.build_absolute_uri(product.get_absolute_url())}")
+        whatsapp_url = f"https://wa.me/{shop.whatsapp_number}?text={quote(text)}"
+
     return render(request, 'shop/product_detail.html', {
         'product': product,
         'gallery': product.gallery.all(),
         'related_products': related[:4],
+        'recent_products': [recent_products[i] for i in recent_ids[:4] if i in recent_products],
         'cart_qty': _get_cart(request).get(str(product.pk), 0),
+        'reviews': reviews[:20],
+        'rating': rating,
+        'review_form': ReviewForm(initial={'rating': my_review.rating if my_review else 5,
+                                           'comment': my_review.comment if my_review else ''}),
+        'can_review': can_review,
+        'my_review': my_review,
+        'wishlisted': wishlisted,
+        'whatsapp_url': whatsapp_url,
     })
 
 
@@ -195,6 +269,8 @@ def add_to_cart(request, pk):
         _save_cart(request, cart)
         messages.success(request, f'"{product.name}" added to your cart.')
 
+    if request.POST.get('buy_now') and key in cart:
+        return redirect('shop:checkout')
     return redirect(_safe_next(request, reverse('shop:cart')))
 
 
@@ -226,11 +302,37 @@ def update_cart(request, pk):
 
 def cart_view(request):
     items, subtotal = _cart_items(request)
+    quote_ = _quote(request, subtotal)
     return render(request, 'shop/cart.html', {
         'items': items,
-        'grand_total': subtotal,
+        'subtotal': subtotal,
+        'quote': quote_,
         'has_stock_problem': any(i['over_stock'] for i in items),
     })
+
+
+@require_POST
+def apply_coupon(request):
+    code = request.POST.get('code', '').strip().upper()
+    _, subtotal = _cart_items(request)
+    coupon = Coupon.objects.filter(code=code).first() if code else None
+    if coupon is None:
+        messages.error(request, "That coupon code is not valid.")
+    else:
+        ok, message = coupon.validate_for(subtotal, request.user)
+        if ok:
+            request.session['coupon'] = coupon.code
+            messages.success(request, f'Coupon {coupon.code} applied.')
+        else:
+            messages.error(request, message)
+    return redirect('shop:cart')
+
+
+@require_POST
+def remove_coupon(request):
+    request.session.pop('coupon', None)
+    messages.info(request, "Coupon removed.")
+    return redirect('shop:cart')
 
 
 @login_required
@@ -245,26 +347,45 @@ def checkout(request):
         messages.warning(request, "Some items in your cart exceed available stock. Please adjust the quantities.")
         return redirect('shop:cart')
 
+    had_coupon = bool(request.session.get('coupon'))
+    early_quote = _quote(request, subtotal)
+    if request.method == 'POST' and had_coupon and early_quote['coupon'] is None:
+        # The coupon stopped being valid, so the price the customer saw has changed.
+        # Show the new total instead of silently placing the order.
+        return redirect('shop:checkout')
+
+    if early_quote['below_minimum']:
+        shop = early_quote['shop']
+        messages.warning(request, f"The minimum order is Tk {shop.min_order_amount:.0f}. Please add more items.")
+        return redirect('shop:cart')
+
     if request.method == 'POST':
         form = CheckoutForm(request.POST)
         if form.is_valid():
-            order = _place_order(request, form)
-            if order is not None:
-                return redirect('shop:order_success')
-            return redirect('shop:cart')
+            phones = {form.cleaned_data['phone'], request.user.username}
+            if BlockedPhone.objects.filter(phone__in=phones).exists():
+                form.add_error(None, "We are unable to accept orders from this account. Please contact us.")
+            else:
+                order = _place_order(request, form)
+                if order is not None:
+                    return redirect('shop:order_success')
+                return redirect('shop:cart')
     else:
         form = CheckoutForm(initial=_checkout_initial(request.user))
 
-    delivery_charges = {k: v for k, v in settings.DELIVERY_CHARGES.items()}
-    selected_area = form['delivery_area'].value() or 'inside'
-    delivery_charge = Order.delivery_charge_for(selected_area)
+    area = form['delivery_area'].value() or 'inside'
+    quote_ = _quote(request, subtotal, area)
+    shop = quote_['shop']
     return render(request, 'shop/checkout.html', {
         'form': form,
         'items': items,
         'subtotal': subtotal,
-        'delivery_charge': delivery_charge,
-        'grand_total': subtotal + delivery_charge,
-        'delivery_charges': delivery_charges,
+        'discount': quote_['discount'],
+        'coupon': quote_['coupon'],
+        'delivery_charge': quote_['delivery_charge'],
+        'grand_total': quote_['total'],
+        'delivery_charges': {'inside': shop.delivery_charge_inside, 'outside': shop.delivery_charge_outside},
+        'free_threshold': shop.free_delivery_threshold,
     })
 
 
@@ -280,9 +401,9 @@ def _checkout_initial(user):
 
 
 def _place_order(request, form):
-    """Create the order atomically, re-checking stock under a row lock.
+    """Create the order atomically, re-checking stock, coupon and minimum under a lock.
 
-    Returns the Order, or None if stock changed and the order could not be placed.
+    Returns the Order, or None if something changed and the order could not be placed.
     """
     cart = _get_cart(request)
     data = form.cleaned_data
@@ -302,6 +423,25 @@ def _place_order(request, form):
             subtotal += line_total
             lines.append((product, qty, line_total))
 
+        shop = ShopSettings.load()
+
+        coupon = None
+        discount = Decimal('0.00')
+        code = request.session.get('coupon')
+        if code:
+            coupon = Coupon.objects.select_for_update().filter(code=code).first()
+            ok, message = (False, "Coupon not found.") if coupon is None else coupon.validate_for(subtotal, request.user)
+            if not ok:
+                request.session.pop('coupon', None)
+                messages.error(request, f'Coupon {code} could not be used: {message} Please review your order.')
+                return None
+            discount = coupon.discount_for(subtotal)
+
+        after_discount = subtotal - discount
+        if shop.min_order_amount and after_discount < shop.min_order_amount:
+            messages.error(request, f"The minimum order is Tk {shop.min_order_amount:.0f}.")
+            return None
+
         # One customer record per phone number (older data may contain duplicates).
         customer = Customer.objects.filter(phone=data['phone']).order_by('-id').first()
         if customer is None:
@@ -312,7 +452,7 @@ def _place_order(request, form):
             customer.address = data['address']
             customer.save(update_fields=['name', 'address'])
 
-        delivery_charge = Order.delivery_charge_for(data['delivery_area'])
+        delivery_charge = shop.delivery_charge_for(data['delivery_area'], after_discount)
         order = Order.objects.create(
             customer=customer,
             user=request.user if request.user.is_authenticated else None,
@@ -321,8 +461,11 @@ def _place_order(request, form):
             payment_method=data['payment_method'],
             note=data['note'],
             subtotal=subtotal,
+            coupon=coupon,
+            coupon_code=coupon.code if coupon else '',
+            discount_amount=discount,
             delivery_charge=delivery_charge,
-            total_price=subtotal + delivery_charge,
+            total_price=after_discount + delivery_charge,
         )
         for product, qty, line_total in lines:
             OrderItem.objects.create(
@@ -337,6 +480,7 @@ def _place_order(request, form):
             product.save(update_fields=['quantity'])
 
     _save_cart(request, {})
+    request.session.pop('coupon', None)
     request.session['last_order_number'] = order.order_number
     return order
 
@@ -392,3 +536,121 @@ def my_order_detail(request, order_number):
     order = get_object_or_404(
         request.user.orders.prefetch_related('items'), order_number=order_number)
     return render(request, 'shop/my_order_detail.html', {'order': order})
+
+
+@login_required
+@require_POST
+def cancel_my_order(request, order_number):
+    order = get_object_or_404(request.user.orders, order_number=order_number)
+    if not order.can_customer_cancel:
+        messages.error(request, "This order can no longer be cancelled online. Please contact us.")
+    else:
+        services.apply_status(order, 'cancelled')
+        messages.success(request, f"Order {order.order_number} has been cancelled.")
+    return redirect('shop:my_order_detail', order_number=order.order_number)
+
+
+# ---------- wishlist & reviews ----------
+
+@login_required
+def wishlist_view(request):
+    items = request.user.wishlist.select_related('product')
+    return render(request, 'shop/wishlist.html', {'items': items})
+
+
+@require_POST
+def wishlist_toggle(request, pk):
+    product = get_object_or_404(Product, pk=pk)
+    fallback = reverse('shop:product_detail', args=[product.pk])
+    if not request.user.is_authenticated:
+        messages.info(request, "Please log in to save products to your wishlist.")
+        return redirect(f"{reverse('shop:login')}?next={_safe_next(request, fallback)}")
+    item, created = Wishlist.objects.get_or_create(user=request.user, product=product)
+    if not created:
+        item.delete()
+        messages.info(request, f'"{product.name}" removed from your wishlist.')
+    else:
+        messages.success(request, f'"{product.name}" saved to your wishlist.')
+    return redirect(_safe_next(request, fallback))
+
+
+@require_POST
+def submit_review(request, pk):
+    product = get_object_or_404(Product, pk=pk)
+    url = reverse('shop:product_detail', args=[product.pk]) + '#reviews'
+    if not request.user.is_authenticated:
+        messages.info(request, "Please log in to write a review.")
+        return redirect(f"{reverse('shop:login')}?next={reverse('shop:product_detail', args=[product.pk])}")
+    bought = OrderItem.objects.filter(
+        order__user=request.user, order__status='delivered', product=product).exists()
+    if not bought:
+        messages.error(request, "You can review a product after your order of it has been delivered.")
+        return redirect(url)
+    form = ReviewForm(request.POST)
+    if form.is_valid():
+        Review.objects.update_or_create(
+            user=request.user, product=product,
+            defaults={'rating': int(form.cleaned_data['rating']), 'comment': form.cleaned_data['comment']})
+        messages.success(request, "Thanks for your review!")
+    else:
+        messages.error(request, "Please choose a rating from 1 to 5.")
+    return redirect(url)
+
+
+# ---------- staff pages ----------
+
+@staff_member_required
+def dashboard(request):
+    shop = ShopSettings.load()
+    now = timezone.localtime()
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    month = today.replace(day=1)
+    live = Order.objects.exclude(status='cancelled')
+
+    def totals(qs):
+        data = qs.aggregate(count=Count('id'), sales=Sum('total_price'))
+        return {'count': data['count'], 'sales': data['sales'] or Decimal('0')}
+
+    week_start = today - timedelta(days=6)
+    by_day = {row['day']: row for row in live.filter(order_date__gte=week_start)
+              .annotate(day=TruncDate('order_date')).values('day')
+              .annotate(count=Count('id'), sales=Sum('total_price'))}
+    week = []
+    for i in range(7):
+        day = (week_start + timedelta(days=i)).date()
+        row = by_day.get(day, {})
+        week.append({'day': day, 'count': row.get('count', 0), 'sales': row.get('sales') or Decimal('0')})
+    peak = max((d['sales'] for d in week), default=0) or 1
+    for d in week:
+        d['percent'] = int(d['sales'] * 100 / peak)
+
+    status_counts = {row['status']: row['n'] for row in Order.objects.values('status').annotate(n=Count('id'))}
+    pending = Order.objects.filter(status='pending')
+
+    return render(request, 'shop/dashboard.html', {
+        'today': totals(live.filter(order_date__gte=today)),
+        'month': totals(live.filter(order_date__gte=month)),
+        'all_time': totals(live),
+        'week': week,
+        'status_counts': [(label, status_counts.get(key, 0)) for key, label in Order.STATUS_CHOICES],
+        'pending_count': pending.count(),
+        'unconfirmed_count': pending.filter(call_confirmed=False).count(),
+        'low_stock': Product.objects.filter(quantity__lte=shop.low_stock_threshold).order_by('quantity', 'name')[:15],
+        'low_stock_threshold': shop.low_stock_threshold,
+        'top_products': (OrderItem.objects.filter(order__in=live.filter(order_date__gte=now - timedelta(days=30)))
+                         .values('product_name').annotate(qty=Sum('quantity'), revenue=Sum('line_total'))
+                         .order_by('-qty')[:5]),
+        'recent_orders': Order.objects.select_related('customer')[:10],
+        'customer_count': Customer.objects.count(),
+    })
+
+
+@staff_member_required
+def invoice(request, order_number):
+    order = get_object_or_404(
+        Order.objects.select_related('customer').prefetch_related('items'), order_number=order_number)
+    return render(request, 'shop/invoice.html', {'order': order})
+
+
+def server_error(request):
+    return render(request, 'shop/500.html', status=500)

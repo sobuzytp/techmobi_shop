@@ -13,6 +13,7 @@
     <div class="card d-inline-block text-start border-0 shadow-sm p-4 mt-2">
         <p class="mb-1">Order number: <strong>{{ order.order_number }}</strong></p>
         <p class="mb-1">Subtotal: Tk {{ order.subtotal }}</p>
+        {% if order.discount_amount %}<p class="mb-1 text-success">Discount ({{ order.coupon_code }}): - Tk {{ order.discount_amount }}</p>{% endif %}
         <p class="mb-1">Delivery ({{ order.get_delivery_area_display }}): Tk {{ order.delivery_charge }}</p>
         <p class="mb-1 fs-5">Total: <span class="price-tag">Tk {{ order.total_price }}</span></p>
         <p class="mb-0 text-muted small">Payment: {{ order.get_payment_method_display }}</p>

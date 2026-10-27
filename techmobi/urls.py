@@ -14,18 +14,45 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.contrib import admin
-from django.urls import path, include
 from django.conf import settings
-from django.conf.urls.static import static
+from django.contrib import admin
+from django.contrib.sitemaps.views import sitemap
+from django.http import HttpResponse
+from django.urls import include, path
+
+from shop.sitemaps import ProductSitemap, StaticViewSitemap
+
+
+def robots_txt(request):
+    lines = [
+        'User-agent: *',
+        'Disallow: /admin/',
+        'Disallow: /cart/',
+        'Disallow: /checkout/',
+        'Disallow: /my-orders/',
+        'Disallow: /dashboard/',
+        'Disallow: /staff/',
+        f'Sitemap: {request.build_absolute_uri("/sitemap.xml")}',
+    ]
+    return HttpResponse('\n'.join(lines) + '\n', content_type='text/plain')
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('sitemap.xml', sitemap, {'sitemaps': {'pages': StaticViewSitemap, 'products': ProductSitemap}},
+         name='sitemap'),
+    path('robots.txt', robots_txt),
     path('', include('shop.urls')),
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+if settings.SERVE_MEDIA:
+    from django.urls import re_path
+    from django.views.static import serve
+
+    urlpatterns += [
+        re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
+    ]
 
 
 handler404 = 'shop.views.page_not_found'
+handler500 = 'shop.views.server_error'
