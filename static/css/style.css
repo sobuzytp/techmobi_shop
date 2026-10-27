@@ -179,3 +179,25 @@ body {
     cursor: pointer;
 }
 .gallery-thumb:hover { border-color: #ffc107; }
+
+/* Offer banners */
+.offer-banner {
+    min-height: 160px;
+    background: linear-gradient(120deg, #0d1b3d, #219ebc);
+    background-size: cover;
+    background-position: center;
+}
+
+/* Order timeline */
+.order-timeline { list-style: none; display: flex; padding: 0; margin: 0; }
+.order-timeline li { flex: 1; text-align: center; position: relative; font-size: 13px; color: #888; }
+.order-timeline li::before {
+    content: ''; display: block; width: 18px; height: 18px; border-radius: 50%;
+    background: #dee2e6; margin: 0 auto 4px; position: relative; z-index: 1;
+}
+.order-timeline li::after {
+    content: ''; position: absolute; top: 8px; left: -50%; width: 100%; height: 2px; background: #dee2e6;
+}
+.order-timeline li:first-child::after { display: none; }
+.order-timeline li.done { color: #198754; font-weight: 600; }
+.order-timeline li.done::before, .order-timeline li.done::after { background: #198754; }

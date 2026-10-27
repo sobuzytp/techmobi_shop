@@ -32,6 +32,7 @@
             <h5 class="mb-0">Order {{ order.order_number }}</h5>
             <span class="badge bg-{% if order.status == 'delivered' %}success{% elif order.status == 'cancelled' %}danger{% else %}warning text-dark{% endif %}">{{ order.get_status_display }}</span>
         </div>
+        {% include 'shop/_timeline.html' %}
         <p class="text-muted small">Placed on {{ order.order_date|date:"d M Y, H:i" }}</p>
         <ul class="list-group list-group-flush mb-3">
             {% for item in order.items.all %}
@@ -42,6 +43,7 @@
             {% endfor %}
         </ul>
         <div class="d-flex justify-content-between"><span>Subtotal</span><span>Tk {{ order.subtotal }}</span></div>
+        {% if order.discount_amount %}<div class="d-flex justify-content-between text-success"><span>Discount ({{ order.coupon_code }})</span><span>- Tk {{ order.discount_amount }}</span></div>{% endif %}
         <div class="d-flex justify-content-between"><span>Delivery</span><span>Tk {{ order.delivery_charge }}</span></div>
         <div class="d-flex justify-content-between fw-bold"><span>Total</span><span>Tk {{ order.total_price }}</span></div>
     </div>

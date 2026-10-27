@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.password_validation import validate_password
 
-from .models import Order, phone_validator
+from .models import BlockedPhone, Order, phone_validator
 
 
 def normalize_phone(value):
@@ -89,6 +89,8 @@ class SignupForm(forms.Form):
 
     def clean_phone(self):
         phone = self.cleaned_data['phone']
+        if BlockedPhone.objects.filter(phone=phone).exists():
+            raise forms.ValidationError("We are unable to create an account for this number. Please contact us.")
         if get_user_model().objects.filter(username=phone).exists():
             raise forms.ValidationError("An account with this phone number already exists. Please log in.")
         return phone
@@ -127,3 +129,15 @@ class PhoneLoginForm(AuthenticationForm):
 
     def clean_username(self):
         return normalize_phone(self.cleaned_data['username'])
+
+
+class ReviewForm(forms.Form):
+    rating = forms.ChoiceField(
+        choices=[(5, '5 - Excellent'), (4, '4 - Good'), (3, '3 - Okay'), (2, '2 - Poor'), (1, '1 - Bad')],
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+    comment = forms.CharField(
+        required=False, max_length=1000,
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3,
+                                     'placeholder': 'Tell others what you think (optional)'}),
+    )

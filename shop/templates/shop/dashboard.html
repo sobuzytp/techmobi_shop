@@ -1,0 +1,104 @@
+{% extends 'shop/base.html' %}
+
+{% block title %}Sales Dashboard - TechMobi{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="d-flex justify-content-between align-items-center flex-wrap mb-4">
+        <h2 class="fw-bold mb-0"><i class="bi bi-graph-up"></i> Sales Dashboard</h2>
+        <a href="{% url 'admin:shop_order_changelist' %}" class="btn btn-outline-techmobi btn-sm">Manage orders</a>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3"><div class="card p-3 border-0 shadow-sm h-100">
+            <div class="text-muted small">Today</div>
+            <div class="fs-4 fw-bold">Tk {{ today.sales|floatformat:0 }}</div>
+            <div class="small">{{ today.count }} order{{ today.count|pluralize }}</div>
+        </div></div>
+        <div class="col-6 col-lg-3"><div class="card p-3 border-0 shadow-sm h-100">
+            <div class="text-muted small">This month</div>
+            <div class="fs-4 fw-bold">Tk {{ month.sales|floatformat:0 }}</div>
+            <div class="small">{{ month.count }} order{{ month.count|pluralize }}</div>
+        </div></div>
+        <div class="col-6 col-lg-3"><div class="card p-3 border-0 shadow-sm h-100">
+            <div class="text-muted small">Pending orders</div>
+            <div class="fs-4 fw-bold">{{ pending_count }}</div>
+            <div class="small text-danger">{{ unconfirmed_count }} not yet call-confirmed</div>
+        </div></div>
+        <div class="col-6 col-lg-3"><div class="card p-3 border-0 shadow-sm h-100">
+            <div class="text-muted small">All time</div>
+            <div class="fs-4 fw-bold">Tk {{ all_time.sales|floatformat:0 }}</div>
+            <div class="small">{{ all_time.count }} orders, {{ customer_count }} customers</div>
+        </div></div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="card p-3 border-0 shadow-sm mb-4">
+                <h5>Last 7 days</h5>
+                {% for d in week %}
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="small text-muted" style="width: 70px;">{{ d.day|date:"D d M" }}</span>
+                    <div class="flex-grow-1 bg-light rounded" style="height: 18px;">
+                        <div class="bg-warning rounded" style="height: 18px; width: {{ d.percent }}%;"></div>
+                    </div>
+                    <span class="small" style="width: 110px;">Tk {{ d.sales|floatformat:0 }} ({{ d.count }})</span>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="card p-3 border-0 shadow-sm">
+                <h5>Recent orders</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead><tr><th>Order</th><th>Customer</th><th>Total</th><th>Status</th><th></th></tr></thead>
+                        <tbody>
+                            {% for o in recent_orders %}
+                            <tr>
+                                <td><a href="{% url 'admin:shop_order_change' o.pk %}">{{ o.order_number }}</a></td>
+                                <td>{{ o.customer.name }}<br><span class="small text-muted">{{ o.customer.phone }}</span></td>
+                                <td>Tk {{ o.total_price }}</td>
+                                <td>{{ o.get_status_display }}{% if o.status == 'pending' and not o.call_confirmed %} <span class="badge bg-danger">call</span>{% endif %}</td>
+                                <td><a href="{% url 'shop:invoice' o.order_number %}" target="_blank">Invoice</a></td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="text-muted">No orders yet.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card p-3 border-0 shadow-sm mb-4">
+                <h5>Orders by status</h5>
+                {% for label, n in status_counts %}
+                <div class="d-flex justify-content-between"><span>{{ label }}</span><strong>{{ n }}</strong></div>
+                {% endfor %}
+            </div>
+
+            <div class="card p-3 border-0 shadow-sm mb-4">
+                <h5>Low stock <span class="small text-muted">(&le; {{ low_stock_threshold }})</span></h5>
+                {% for p in low_stock %}
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'admin:shop_product_change' p.pk %}">{{ p.name }}</a>
+                    <strong class="{% if p.quantity == 0 %}text-danger{% endif %}">{{ p.quantity }}</strong>
+                </div>
+                {% empty %}
+                <span class="text-muted">All products are well stocked.</span>
+                {% endfor %}
+            </div>
+
+            <div class="card p-3 border-0 shadow-sm">
+                <h5>Top products (30 days)</h5>
+                {% for t in top_products %}
+                <div class="d-flex justify-content-between"><span>{{ t.product_name }}</span><span>{{ t.qty }} sold</span></div>
+                {% empty %}
+                <span class="text-muted">No sales yet.</span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

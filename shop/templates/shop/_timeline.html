@@ -1,0 +1,10 @@
+{% if order.status == 'cancelled' %}
+<div class="alert alert-danger py-2 mb-3"><i class="bi bi-x-circle"></i> This order was cancelled.</div>
+{% else %}
+<ol class="order-timeline mb-3">
+    <li class="{% if order.status_step >= 0 %}done{% endif %}"><span>Pending</span></li>
+    <li class="{% if order.status_step >= 1 %}done{% endif %}"><span>Confirmed</span></li>
+    <li class="{% if order.status_step >= 2 %}done{% endif %}"><span>Shipped</span></li>
+    <li class="{% if order.status_step >= 3 %}done{% endif %}"><span>Delivered</span></li>
+</ol>
+{% endif %}

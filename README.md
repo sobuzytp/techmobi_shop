@@ -28,6 +28,11 @@ quantities, and check out — with the order saved to the database.
 - Cash on Delivery with delivery charge by area (Inside / Outside Khulna)
 - One order with many items, unique order number, and an **order tracking** page (order number + phone)
 - Custom 404 page
+- **Coupons** (percent or fixed, min order, usage limits, expiry), **Buy Now**, **Wishlist**, verified-buyer **reviews**, recently viewed, WhatsApp order button, home-page offer banners
+- **Order management**: customers can cancel Pending orders (stock is restored), order status timeline, admin bulk status actions, call-confirmed flag, CSV export, printable invoice, blocked phone numbers
+- **Sales dashboard** at `/dashboard/` (staff only): today/month sales, 7-day chart, pending orders, low stock, top products
+- **Shop settings** in the admin: delivery charges, free-delivery threshold, minimum order, low-stock level, WhatsApp number
+- SEO: meta/Open Graph tags, `sitemap.xml`, `robots.txt`
 - **Accounts**: sign up / log in with phone number + password, "My Orders" history, checkout prefilled from your account and last order (an account is required to place an order; browsing and the cart work without one)
 
 ## Project Structure
@@ -136,8 +141,13 @@ Environment variables (all optional for local development):
 | `DJANGO_SECRET_KEY` | Secret key. **Set this in production.** |
 | `DJANGO_DEBUG` | `1` (default) or `0`. Use `0` in production. |
 | `DJANGO_ALLOWED_HOSTS` | Comma-separated hosts, required when `DJANGO_DEBUG=0`. |
+| `DJANGO_SERVE_MEDIA` | `1` lets Django serve `/media/` when `DJANGO_DEBUG=0` (if your web server does not). |
+| `DJANGO_BEHIND_PROXY` | `1` if the host terminates HTTPS and sends `X-Forwarded-Proto`. |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | Optional, e.g. `https://tech-mobi.notte.top`. |
 
-Delivery charges are set in `DELIVERY_CHARGES` in `techmobi/settings.py`.
+Delivery charges, free-delivery threshold and minimum order are edited in the admin under **Shop settings** (`DELIVERY_CHARGES` in `techmobi/settings.py` only supplies the first defaults).
+
+With `DJANGO_DEBUG=0`, session and CSRF cookies are marked Secure (HTTPS only).
 
 ## Tests
 

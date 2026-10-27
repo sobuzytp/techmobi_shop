@@ -2,6 +2,14 @@
 
 {% block title %}{{ product.name }} - TechMobi{% endblock %}
 
+{% block meta %}
+<meta name="description" content="{{ product.description|default:product.name|truncatechars:155 }}">
+<meta property="og:type" content="product">
+<meta property="og:title" content="{{ product.name }} - Tk {{ product.discounted_price }}">
+<meta property="og:description" content="{{ product.description|default:product.name|truncatechars:155 }}">
+{% if product.image %}<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ product.image.url }}">{% endif %}
+{% endblock %}
+
 {% block content %}
 <div class="container py-5">
     <nav aria-label="breadcrumb">
@@ -38,6 +46,15 @@
             {% endif %}
             <h1 class="fw-bold">{{ product.name }}</h1>
 
+            {% if rating.count %}
+            <p class="mb-1">
+                <a href="#reviews" class="text-decoration-none text-warning">
+                    {% for i in "12345" %}<i class="bi bi-star{% if forloop.counter <= rating.average|floatformat:0|add:0 %}-fill{% endif %}"></i>{% endfor %}
+                </a>
+                <span class="text-muted small">{{ rating.average|floatformat:1 }} ({{ rating.count }} review{{ rating.count|pluralize }})</span>
+            </p>
+            {% endif %}
+
             <div class="my-3">
                 <span class="fs-3 price-tag">Tk {{ product.discounted_price }}</span>
                 {% if product.discount_percent %}
@@ -52,6 +69,7 @@
                 <strong>Available Quantity:</strong>
                 {% if product.in_stock %}
                 <span class="badge badge-stock">{{ product.quantity }} in stock</span>
+                {% if product.quantity <= 5 %}<span class="text-danger small ms-1">Only {{ product.quantity }} left!</span>{% endif %}
                 {% else %}
                 <span class="badge badge-outstock">Out of stock</span>
                 {% endif %}
@@ -69,23 +87,98 @@
             {% endif %}
 
             {% if cart_qty %}<p class="small text-muted mb-0">You have {{ cart_qty }} in your cart.</p>{% endif %}
-            <form method="post" action="{% url 'shop:add_to_cart' product.pk %}" class="mt-4">
+            <form method="post" action="{% url 'shop:add_to_cart' product.pk %}" class="mt-3 d-flex flex-wrap gap-2">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{% url 'shop:product_detail' product.pk %}">
-                <button type="submit" class="btn btn-techmobi btn-lg" {% if not product.in_stock %}disabled{% endif %}>
+                <button type="submit" class="btn btn-outline-techmobi btn-lg" {% if not product.in_stock %}disabled{% endif %}>
                     <i class="bi bi-cart-plus"></i> Add to Cart
                 </button>
-                <a href="{% url 'shop:product_list' %}" class="btn btn-outline-techmobi btn-lg ms-2">
+                <button type="submit" name="buy_now" value="1" class="btn btn-techmobi btn-lg" {% if not product.in_stock %}disabled{% endif %}>
+                    <i class="bi bi-lightning-charge"></i> Buy Now
+                </button>
+            </form>
+
+            <div class="d-flex flex-wrap gap-2 mt-3">
+                <form method="post" action="{% url 'shop:wishlist_toggle' product.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{% url 'shop:product_detail' product.pk %}">
+                    <button type="submit" class="btn btn-outline-danger">
+                        <i class="bi bi-heart{% if wishlisted %}-fill{% endif %}"></i>
+                        {% if wishlisted %}Saved to Wishlist{% else %}Save to Wishlist{% endif %}
+                    </button>
+                </form>
+                {% if whatsapp_url %}
+                <a href="{{ whatsapp_url }}" target="_blank" rel="noopener" class="btn btn-success">
+                    <i class="bi bi-whatsapp"></i> Order on WhatsApp
+                </a>
+                {% endif %}
+                <a href="{% url 'shop:product_list' %}" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left"></i> Back to Products
                 </a>
-            </form>
+            </div>
+            <p class="small text-muted mt-3 mb-0"><i class="bi bi-cash-coin"></i> Payment: Cash on Delivery</p>
         </div>
     </div>
+
+    <section id="reviews" class="mt-5">
+        <h4 class="fw-bold mb-3">Customer Reviews</h4>
+        {% for review in reviews %}
+        <div class="border-bottom py-3">
+            <div class="text-warning">
+                {% for i in "12345" %}<i class="bi bi-star{% if forloop.counter <= review.rating %}-fill{% endif %}"></i>{% endfor %}
+            </div>
+            <strong>{{ review.user.first_name|default:"Customer" }}</strong>
+            <span class="text-muted small ms-2">{{ review.created_at|date:"d M Y" }}</span>
+            {% if review.comment %}<p class="mb-0 mt-1">{{ review.comment|linebreaksbr }}</p>{% endif %}
+        </div>
+        {% empty %}
+        <p class="text-muted">No reviews yet.</p>
+        {% endfor %}
+
+        {% if can_review %}
+        <div class="card p-3 border-0 shadow-sm mt-4" style="max-width: 520px;">
+            <h6>{% if my_review %}Update your review{% else %}Write a review{% endif %}</h6>
+            <form method="post" action="{% url 'shop:submit_review' product.pk %}">
+                {% csrf_token %}
+                <div class="mb-2">{{ review_form.rating }}</div>
+                <div class="mb-2">{{ review_form.comment }}</div>
+                <button type="submit" class="btn btn-techmobi btn-sm">Submit review</button>
+            </form>
+        </div>
+        {% elif user.is_authenticated %}
+        <p class="small text-muted mt-3">You can review this product after your order of it has been delivered.</p>
+        {% endif %}
+    </section>
 
     {% if related_products %}
     <h4 class="fw-bold mt-5 mb-3">Related Products</h4>
     <div class="row g-4">
         {% for rp in related_products %}
+        <div class="col-6 col-md-3">
+            <a href="{% url 'shop:product_detail' rp.pk %}" class="text-decoration-none">
+                <div class="card product-card h-100">
+                    {% if rp.image %}
+                    <img src="{{ rp.image.url }}" class="card-img-top" alt="{{ rp.name }}">
+                    {% else %}
+                    <div class="card-img-top d-flex align-items-center justify-content-center">
+                        <i class="bi bi-phone" style="font-size: 3rem; color: #ccc;"></i>
+                    </div>
+                    {% endif %}
+                    <div class="card-body">
+                        <h6 class="card-title fw-semibold text-dark">{{ rp.name }}</h6>
+                        <span class="price-tag">Tk {{ rp.discounted_price }}</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if recent_products %}
+    <h4 class="fw-bold mt-5 mb-3">Recently Viewed</h4>
+    <div class="row g-4">
+        {% for rp in recent_products %}
         <div class="col-6 col-md-3">
             <a href="{% url 'shop:product_detail' rp.pk %}" class="text-decoration-none">
                 <div class="card product-card h-100">
