@@ -8,6 +8,16 @@ from django.urls import reverse
 from django.utils import timezone
 
 
+def warranty_text(months):
+    """12 -> '1 year', 18 -> '18 months', 0 -> ''."""
+    if not months:
+        return ''
+    if months % 12 == 0:
+        years = months // 12
+        return f"{years} year{'s' if years > 1 else ''}"
+    return f"{months} month{'s' if months > 1 else ''}"
+
+
 class Category(models.Model):
     """Simple product category (e.g. Smartphones, Accessories, Tablets)."""
     name = models.CharField(max_length=100, unique=True)
@@ -45,6 +55,11 @@ class Product(models.Model):
     camera = models.CharField(max_length=100, blank=True)
     color = models.CharField(max_length=100, blank=True, help_text="e.g. Black, Blue")
 
+    CONDITION_CHOICES = [('new', 'New'), ('used', 'Used'), ('refurbished', 'Refurbished')]
+    condition = models.CharField(max_length=12, choices=CONDITION_CHOICES, default='new')
+    warranty_months = models.PositiveIntegerField(
+        default=0, help_text="Warranty in months. 0 = no warranty.")
+
     class Meta:
         ordering = ['-created_at']
 
@@ -75,8 +90,14 @@ class Product(models.Model):
             ('Battery', self.battery),
             ('Camera', self.camera),
             ('Color', self.color),
+            ('Condition', self.get_condition_display()),
+            ('Warranty', self.warranty_label),
         ]
         return [(label, value) for label, value in pairs if value]
+
+    @property
+    def warranty_label(self):
+        return warranty_text(self.warranty_months)
 
 
 class ProductImage(models.Model):
@@ -175,6 +196,14 @@ class OrderItem(models.Model):
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.PositiveIntegerField(default=1)
     line_total = models.DecimalField(max_digits=10, decimal_places=2)
+    warranty_months = models.PositiveIntegerField(default=0)
+    imei = models.CharField(
+        "IMEI / serial", max_length=120, blank=True,
+        help_text="Fill in before shipping. Separate several numbers with commas. Shown on the invoice.")
+
+    @property
+    def warranty_label(self):
+        return warranty_text(self.warranty_months)
 
     def __str__(self):
         return f"{self.product_name} x{self.quantity}"
@@ -197,6 +226,11 @@ class ShopSettings(models.Model):
     whatsapp_number = models.CharField(
         max_length=20, blank=True,
         help_text="With country code, digits only, e.g. 8801712345678. Shows an 'Order on WhatsApp' button.")
+    shop_phone = models.CharField(max_length=40, default='+880 1601642548')
+    shop_email = models.EmailField(default='support@techmobi.abrakadabra.sobuj')
+    shop_address = models.CharField(max_length=200, default='Khulna, Bangladesh')
+    opening_hours = models.CharField(max_length=120, blank=True, help_text="e.g. Sat-Thu, 10am - 9pm")
+    facebook_url = models.URLField(blank=True)
 
     class Meta:
         verbose_name = "Shop settings"
@@ -344,3 +378,32 @@ class Banner(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class Page(models.Model):
+    """Simple text pages (About, Contact, policies) the shop owner can edit in the admin."""
+    slug = models.SlugField(unique=True, help_text="Part of the web address, e.g. return-policy")
+    title = models.CharField(max_length=120)
+    content = models.TextField(help_text="Plain text. Blank lines start a new paragraph.")
+    is_published = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['sort_order', 'title']
+
+    def __str__(self):
+        return self.title
+
+    def get_absolute_url(self):
+        return reverse('shop:page', args=[self.slug])
+
+
+class ThrottleEntry(models.Model):
+    """Counts attempts per key inside a time window (used for rate limiting)."""
+    key = models.CharField(max_length=120, unique=True)
+    count = models.PositiveIntegerField(default=0)
+    window_start = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"{self.key}: {self.count}"

@@ -1,0 +1,23 @@
+{% extends 'shop/base.html' %}
+
+{% block title %}{{ page.title }} - TechMobi{% endblock %}
+
+{% block meta %}<meta name="description" content="{{ page.content|truncatechars:155 }}">{% endblock %}
+
+{% block content %}
+<div class="container py-5" style="max-width: 800px;">
+    <h1 class="fw-bold mb-4">{{ page.title }}</h1>
+    <div class="page-content">{{ page.content|linebreaks }}</div>
+
+    {% if page.slug == 'contact' %}
+    <div class="card p-4 border-0 shadow-sm mt-4">
+        <p class="mb-1"><i class="bi bi-geo-alt"></i> {{ shop_settings.shop_address }}</p>
+        <p class="mb-1"><i class="bi bi-telephone"></i> <a href="tel:{{ shop_settings.shop_phone|cut:' ' }}">{{ shop_settings.shop_phone }}</a></p>
+        <p class="mb-1"><i class="bi bi-envelope"></i> <a href="mailto:{{ shop_settings.shop_email }}">{{ shop_settings.shop_email }}</a></p>
+        {% if shop_settings.opening_hours %}<p class="mb-1"><i class="bi bi-clock"></i> {{ shop_settings.opening_hours }}</p>{% endif %}
+        {% if shop_settings.whatsapp_number %}<p class="mb-0"><i class="bi bi-whatsapp"></i> <a href="https://wa.me/{{ shop_settings.whatsapp_number }}" target="_blank" rel="noopener">Chat on WhatsApp</a></p>{% endif %}
+    </div>
+    {% endif %}
+    <p class="text-muted small mt-4">Last updated {{ page.updated_at|date:"d M Y" }}</p>
+</div>
+{% endblock %}

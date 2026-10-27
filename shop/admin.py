@@ -9,7 +9,7 @@ from django.utils.html import format_html
 
 from . import services
 from .models import (
-    Banner, BlockedPhone, Category, Coupon, Customer, Order, OrderItem, Product, ProductImage,
+    Banner, BlockedPhone, Category, Coupon, Customer, Order, OrderItem, Page, Product, ProductImage,
     Review, ShopSettings, Wishlist,
 )
 
@@ -42,14 +42,15 @@ class LowStockFilter(admin.SimpleListFilter):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('name', 'brand', 'category', 'price', 'discount_percent', 'quantity', 'is_featured', 'created_at')
-    list_filter = ('category', 'is_featured', LowStockFilter)
+    list_display = ('name', 'brand', 'category', 'condition', 'warranty_months', 'price', 'discount_percent',
+                    'quantity', 'is_featured', 'created_at')
+    list_filter = ('category', 'condition', 'is_featured', LowStockFilter)
     search_fields = ('name', 'brand', 'description')
     list_editable = ('price', 'quantity', 'is_featured', 'discount_percent')
     inlines = [ProductImageInline]
     fieldsets = (
-        (None, {'fields': ('name', 'brand', 'category', 'price', 'discount_percent', 'quantity',
-                           'is_featured', 'image', 'description')}),
+        (None, {'fields': ('name', 'brand', 'category', 'condition', 'warranty_months', 'price',
+                           'discount_percent', 'quantity', 'is_featured', 'image', 'description')}),
         ('Specifications', {'fields': ('ram', 'storage', 'display', 'battery', 'camera', 'color')}),
     )
 
@@ -63,7 +64,8 @@ class CustomerAdmin(admin.ModelAdmin):
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
-    readonly_fields = ('product', 'product_name', 'unit_price', 'quantity', 'line_total')
+    fields = ('product_name', 'quantity', 'unit_price', 'line_total', 'warranty_months', 'imei')
+    readonly_fields = ('product_name', 'unit_price', 'quantity', 'line_total', 'warranty_months')
     can_delete = False
 
     def has_add_permission(self, request, obj=None):
@@ -207,9 +209,24 @@ class BannerAdmin(admin.ModelAdmin):
     list_editable = ('sort_order', 'is_active')
 
 
+@admin.register(Page)
+class PageAdmin(admin.ModelAdmin):
+    list_display = ('title', 'slug', 'is_published', 'sort_order', 'updated_at')
+    list_editable = ('is_published', 'sort_order')
+    search_fields = ('title', 'content')
+
+
 @admin.register(ShopSettings)
 class ShopSettingsAdmin(admin.ModelAdmin):
     """Only one settings row exists; the list page jumps straight to it."""
+    fieldsets = (
+        ('Delivery and orders', {'fields': ('delivery_charge_inside', 'delivery_charge_outside',
+                                            'free_delivery_threshold', 'min_order_amount',
+                                            'low_stock_threshold')}),
+        ('Contact details (shown in the footer and Contact page)', {
+            'fields': ('shop_phone', 'shop_email', 'shop_address', 'opening_hours', 'facebook_url',
+                       'whatsapp_number')}),
+    )
 
     def has_add_permission(self, request):
         return False

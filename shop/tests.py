@@ -677,3 +677,274 @@ class StaffAndSeoTests(TestCase):
     def test_timezone_is_dhaka(self):
         from django.conf import settings
         self.assertEqual(settings.TIME_ZONE, 'Asia/Dhaka')
+
+
+# ---------------------------------------------------------------------------
+# Trust & safety: backups, warranty/IMEI, text pages, rate limiting
+# ---------------------------------------------------------------------------
+import shutil
+import sqlite3
+import tempfile
+import zipfile
+from io import StringIO
+from pathlib import Path
+
+from django.core.management import call_command
+from django.core.management.base import CommandError
+
+from . import ratelimit
+from .models import Page, ThrottleEntry
+
+
+class BackupCommandTests(TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        # a real SQLite file with some data, and a media folder with one file
+        self.db_path = self.tmp / 'live.sqlite3'
+        con = sqlite3.connect(self.db_path)
+        con.execute('CREATE TABLE t (x INTEGER)')
+        con.execute('INSERT INTO t VALUES (42)')
+        con.commit()
+        con.close()
+        self.media = self.tmp / 'media'
+        (self.media / 'products').mkdir(parents=True)
+        (self.media / 'products' / 'a.jpg').write_bytes(b'jpgdata')
+
+    def run_backup(self, *args):
+        out = StringIO()
+        databases = {'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': str(self.db_path)}}
+        with self.settings(DATABASES=databases, MEDIA_ROOT=str(self.media)):
+            call_command('backup_data', f'--dir={self.tmp / "bk"}', *args, stdout=out)
+        return out.getvalue()
+
+    def test_backup_contains_working_db_and_media(self):
+        self.run_backup()
+        zips = list((self.tmp / 'bk').glob('techmobi-backup-*.zip'))
+        self.assertEqual(len(zips), 1)
+        with zipfile.ZipFile(zips[0]) as z:
+            self.assertEqual(sorted(z.namelist()), ['db.sqlite3', 'media/products/a.jpg'])
+            z.extract('db.sqlite3', self.tmp / 'restored')
+        con = sqlite3.connect(self.tmp / 'restored' / 'db.sqlite3')
+        self.assertEqual(con.execute('SELECT x FROM t').fetchone(), (42,))
+        con.close()
+
+    def test_no_media_and_rotation(self):
+        bk = self.tmp / 'bk'
+        bk.mkdir()
+        for day in ('2026-01-01', '2026-01-02', '2026-01-03'):
+            (bk / f'techmobi-backup-{day}_000000.zip').write_bytes(b'old')
+        self.run_backup('--keep=2', '--no-media')
+        names = sorted(p.name for p in bk.glob('*.zip'))
+        self.assertEqual(len(names), 2)
+        self.assertNotIn('techmobi-backup-2026-01-01_000000.zip', names)
+        newest = [bk / n for n in names if '2026-01' not in n][0]
+        with zipfile.ZipFile(newest) as z:
+            self.assertEqual(z.namelist(), ['db.sqlite3'])
+
+    def test_missing_database_is_an_error_and_creates_nothing(self):
+        databases = {'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': str(self.tmp / 'nope.sqlite3')}}
+        with self.settings(DATABASES=databases):
+            with self.assertRaises(CommandError):
+                call_command('backup_data', f'--dir={self.tmp / "bk"}')
+        self.assertFalse((self.tmp / 'nope.sqlite3').exists())
+
+
+class WarrantyAndImeiTests(TestCase):
+    def test_labels(self):
+        from .models import warranty_text
+        self.assertEqual(warranty_text(0), '')
+        self.assertEqual(warranty_text(12), '1 year')
+        self.assertEqual(warranty_text(24), '2 years')
+        self.assertEqual(warranty_text(6), '6 months')
+        self.assertEqual(warranty_text(1), '1 month')
+        self.assertEqual(warranty_text(18), '18 months')
+
+    def test_snapshot_invoice_and_customer_view(self):
+        user = make_user()
+        self.client.force_login(user)
+        product = make_product('Phone', '1000', 5, warranty_months=12, condition='refurbished')
+        self.client.post(reverse('shop:add_to_cart', args=[product.pk]))
+        self.client.post(reverse('shop:checkout'), checkout_data())
+        item = OrderItem.objects.get()
+        self.assertEqual(item.warranty_months, 12)
+        Product.objects.filter(pk=product.pk).update(warranty_months=0)  # later change must not matter
+        item.imei = '356938035643809'
+        item.save()
+        order = item.order
+
+        detail = self.client.get(reverse('shop:my_order_detail', args=[order.order_number]))
+        self.assertContains(detail, '356938035643809')
+        self.assertContains(detail, '1 year')
+
+        self.client.force_login(make_user('01700000099', staff=True))
+        invoice = self.client.get(reverse('shop:invoice', args=[order.order_number]))
+        self.assertContains(invoice, 'IMEI/Serial: 356938035643809')
+        self.assertContains(invoice, '1 year')
+
+    def test_product_page_shows_condition_and_warranty(self):
+        product = make_product('Used phone', '500', 1, warranty_months=6, condition='used')
+        page = self.client.get(reverse('shop:product_detail', args=[product.pk]))
+        self.assertContains(page, '6 months warranty')
+        self.assertContains(page, 'Used')
+        self.assertIn(('Warranty', '6 months'), page.context['product'].specs)
+        listing = self.client.get(reverse('shop:product_list'))
+        self.assertContains(listing, 'Used')
+
+    def test_admin_can_save_imei_on_order(self):
+        user = make_user()
+        customer = Customer.objects.create(name='A', phone=user.username, address='x')
+        order = Order.objects.create(customer=customer, user=user, total_price=Decimal('10'), delivery_address='x')
+        item = OrderItem.objects.create(order=order, product_name='P', unit_price=1, quantity=1, line_total=1)
+        self.client.force_login(make_user('01700000098', staff=True))
+        data = {'status': 'pending', 'delivery_address': 'x', 'delivery_area': 'inside', 'payment_method': 'cod',
+                'note': '', 'customer': customer.pk,
+                'items-TOTAL_FORMS': '1', 'items-INITIAL_FORMS': '1', 'items-MIN_NUM_FORMS': '0',
+                'items-MAX_NUM_FORMS': '1000', 'items-0-id': item.pk, 'items-0-order': order.pk,
+                'items-0-imei': '111, 222'}
+        self.client.post(reverse('admin:shop_order_change', args=[order.pk]), data)
+        item.refresh_from_db()
+        self.assertEqual(item.imei, '111, 222')
+
+
+class PagesTests(TestCase):
+    def test_default_pages_exist_and_render(self):
+        slugs = {'about', 'contact', 'return-policy', 'warranty-policy', 'privacy-policy', 'terms'}
+        self.assertEqual(set(Page.objects.values_list('slug', flat=True)), slugs)
+        for slug in slugs:
+            resp = self.client.get(reverse('shop:page', args=[slug]))
+            self.assertEqual(resp.status_code, 200, slug)
+
+    def test_footer_links_and_contact_details_come_from_settings(self):
+        shop = ShopSettings.load()
+        shop.shop_phone = '+880 1999-000000'
+        shop.shop_address = 'Boyra, Khulna'
+        shop.facebook_url = 'https://facebook.com/techmobi'
+        shop.save()
+        home = self.client.get(reverse('shop:home'))
+        self.assertContains(home, 'Return &amp; Refund Policy')
+        self.assertContains(home, '+880 1999-000000')
+        self.assertContains(home, 'Boyra, Khulna')
+        self.assertContains(home, 'https://facebook.com/techmobi')
+        contact = self.client.get(reverse('shop:page', args=['contact']))
+        self.assertContains(contact, 'tel:+8801999-000000')
+
+    def test_unpublished_page_is_hidden_everywhere(self):
+        Page.objects.filter(slug='terms').update(is_published=False)
+        self.assertEqual(self.client.get(reverse('shop:page', args=['terms'])).status_code, 404)
+        self.assertNotContains(self.client.get(reverse('shop:home')), 'Terms &amp; Conditions')
+        self.assertNotContains(self.client.get('/sitemap.xml'), '/pages/terms/')
+        self.assertContains(self.client.get('/sitemap.xml'), '/pages/about/')
+
+    def test_page_content_is_escaped(self):
+        Page.objects.create(slug='x', title='X', content='Hello <script>alert(1)</script>\n\nSecond')
+        resp = self.client.get(reverse('shop:page', args=['x']))
+        self.assertNotContains(resp, '<script>alert(1)</script>')
+        self.assertContains(resp, '&lt;script&gt;')
+
+    def test_edited_page_is_not_overwritten_by_seed(self):
+        Page.objects.filter(slug='about').update(content='My own text')
+        from importlib import import_module
+        from django.apps import apps
+        import_module('shop.migrations.0008_seed_pages').seed(apps, None)
+        self.assertEqual(Page.objects.get(slug='about').content, 'My own text')
+
+    def test_checkout_links_to_policies(self):
+        self.client.force_login(make_user())
+        product = make_product(quantity=2)
+        self.client.post(reverse('shop:add_to_cart', args=[product.pk]))
+        resp = self.client.get(reverse('shop:checkout'))
+        self.assertContains(resp, '/pages/terms/')
+        self.assertContains(resp, '/pages/return-policy/')
+
+
+class RateLimitTests(TestCase):
+    def setUp(self):
+        self.user = make_user('01700000200', password='S3cure-pass-91')
+
+    def login(self, phone='01700000200', password='wrong-password'):
+        return self.client.post(reverse('shop:login'), {'username': phone, 'password': password})
+
+    def test_unit_limiter_window(self):
+        key = 'k:1'
+        for _ in range(3):
+            ratelimit.record(key, 60)
+        self.assertTrue(ratelimit.is_limited(key, 3, 60))
+        self.assertFalse(ratelimit.is_limited(key, 4, 60))
+        ThrottleEntry.objects.filter(key=key).update(window_start=timezone.now() - timedelta(seconds=61))
+        self.assertFalse(ratelimit.is_limited(key, 3, 60))      # old window ignored
+        ratelimit.record(key, 60)
+        self.assertEqual(ThrottleEntry.objects.get(key=key).count, 1)  # fresh window started
+        ratelimit.reset(key)
+        self.assertFalse(ThrottleEntry.objects.filter(key=key).exists())
+
+    def test_phone_locked_after_five_wrong_passwords_even_with_right_one(self):
+        for _ in range(5):
+            self.assertEqual(self.login().status_code, 200)
+        resp = self.login(password='S3cure-pass-91')
+        self.assertEqual(resp.status_code, 429)
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+    def test_other_phone_not_affected_and_phone_variants_share_a_lock(self):
+        make_user('01700000201')
+        for phone in ('01700000200', '+8801700000200', '880 1700-000200', '01700000200', '01700000200'):
+            self.login(phone)
+        self.assertEqual(self.login('01700000200', 'S3cure-pass-91').status_code, 429)
+        self.assertEqual(self.login('01700000201', 'S3cure-pass-91').status_code, 302)
+
+    def test_lock_expires(self):
+        for _ in range(5):
+            self.login()
+        ThrottleEntry.objects.all().update(window_start=timezone.now() - timedelta(minutes=16))
+        self.assertEqual(self.login(password='S3cure-pass-91').status_code, 302)
+
+    def test_success_resets_counter(self):
+        for _ in range(4):
+            self.login()
+        self.assertEqual(self.login(password='S3cure-pass-91').status_code, 302)
+        self.client.logout()
+        for _ in range(4):
+            self.assertEqual(self.login().status_code, 200)   # fresh count, not locked yet
+
+    def test_track_order_throttled(self):
+        url = reverse('shop:track_order')
+        for _ in range(20):
+            self.assertEqual(self.client.post(url, {'order_number': 'TMXXXXXXXX', 'phone': '01700000300'}).status_code, 200)
+        resp = self.client.post(url, {'order_number': 'TMXXXXXXXX', 'phone': '01700000300'})
+        self.assertEqual(resp.status_code, 429)
+        self.assertIsNone(resp.context['order'])
+
+    def test_signup_throttled(self):
+        url = reverse('shop:signup')
+        for i in range(8):
+            self.client.post(url, {'name': 'A', 'phone': f'0170000040{i}', 'password1': 'x', 'password2': 'y'})
+        resp = self.client.post(url, {'name': 'A', 'phone': '01700000499',
+                                      'password1': 'S3cure-pass-91', 'password2': 'S3cure-pass-91'})
+        self.assertEqual(resp.status_code, 429)
+        self.assertFalse(get_user_model().objects.filter(username='01700000499').exists())
+
+    def test_coupon_guessing_throttled(self):
+        Coupon.objects.create(code='REAL', value=10)
+        url = reverse('shop:apply_coupon')
+        for i in range(15):
+            self.client.post(url, {'code': f'GUESS{i}'})
+        self.client.post(url, {'code': 'REAL'})
+        self.assertNotIn('coupon', self.client.session)
+
+
+class ClientIpTests(TestCase):
+    def test_default_and_headers(self):
+        from django.test import RequestFactory
+        rf = RequestFactory()
+        request = rf.get('/', REMOTE_ADDR='10.0.0.5', HTTP_X_FORWARDED_FOR='1.2.3.4, 5.6.7.8', HTTP_CF_CONNECTING_IP='9.9.9.9')
+        self.assertEqual(ratelimit.client_ip(request), '10.0.0.5')
+        with self.settings(CLIENT_IP_HEADER='HTTP_X_FORWARDED_FOR'):
+            self.assertEqual(ratelimit.client_ip(request), '5.6.7.8')   # last entry: added by our proxy
+        with self.settings(CLIENT_IP_HEADER='HTTP_CF_CONNECTING_IP'):
+            self.assertEqual(ratelimit.client_ip(request), '9.9.9.9')
+        with self.settings(CLIENT_IP_HEADER='HTTP_MISSING'):
+            self.assertEqual(ratelimit.client_ip(request), '10.0.0.5')  # falls back safely
+
+    def test_dashboard_shows_visitor_ip(self):
+        self.client.force_login(make_user('01700000555', staff=True))
+        self.assertContains(self.client.get(reverse('shop:dashboard')), '127.0.0.1')

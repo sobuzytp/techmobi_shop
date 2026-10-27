@@ -16,7 +16,9 @@
         <ul class="list-group list-group-flush mb-3">
             {% for item in order.items.all %}
             <li class="list-group-item d-flex justify-content-between px-0">
-                <span>{{ item.product_name }} &times; {{ item.quantity }}</span>
+                <span>{{ item.product_name }} &times; {{ item.quantity }}
+                    {% if item.warranty_label %}<br><span class="small text-muted">Warranty: {{ item.warranty_label }}</span>{% endif %}
+                    {% if item.imei %}<br><span class="small text-muted">IMEI/Serial: {{ item.imei }}</span>{% endif %}</span>
                 <span>Tk {{ item.line_total }}</span>
             </li>
             {% endfor %}

@@ -67,6 +67,11 @@
                     <button type="submit" class="btn btn-techmobi btn-lg w-100">
                         <i class="bi bi-check2-circle"></i> Place Order
                     </button>
+                    <p class="small text-muted text-center mt-2 mb-0">
+                        By placing the order you agree to our
+                        <a href="{% url 'shop:page' 'terms' %}" target="_blank">Terms</a> and
+                        <a href="{% url 'shop:page' 'return-policy' %}" target="_blank">Return Policy</a>.
+                    </p>
                 </form>
             </div>
         </div>

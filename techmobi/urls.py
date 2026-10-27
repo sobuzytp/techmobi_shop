@@ -20,7 +20,7 @@ from django.contrib.sitemaps.views import sitemap
 from django.http import HttpResponse
 from django.urls import include, path
 
-from shop.sitemaps import ProductSitemap, StaticViewSitemap
+from shop.sitemaps import PageSitemap, ProductSitemap, StaticViewSitemap
 
 
 def robots_txt(request):
@@ -39,7 +39,7 @@ def robots_txt(request):
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('sitemap.xml', sitemap, {'sitemaps': {'pages': StaticViewSitemap, 'products': ProductSitemap}},
+    path('sitemap.xml', sitemap, {'sitemaps': {'pages': StaticViewSitemap, 'products': ProductSitemap, 'info': PageSitemap}},
          name='sitemap'),
     path('robots.txt', robots_txt),
     path('', include('shop.urls')),
