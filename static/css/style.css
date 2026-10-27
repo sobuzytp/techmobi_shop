@@ -168,3 +168,14 @@ body {
     font-size: 5rem;
     color: #2a9d8f;
 }
+
+/* Product gallery thumbnails */
+.gallery-thumb {
+    width: 72px;
+    height: 72px;
+    object-fit: cover;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    cursor: pointer;
+}
+.gallery-thumb:hover { border-color: #ffc107; }

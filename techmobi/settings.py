@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -20,12 +21,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-fkv8-=!4z#x+90$u$^ot#-pu(5k@xw=!scs0-o1lfjka=h*76i'
+# Set DJANGO_SECRET_KEY in the environment for production. The fallback is for local dev only.
+SECRET_KEY = os.environ.get(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-fkv8-=!4z#x+90$u$^ot#-pu(5k@xw=!scs0-o1lfjka=h*76i',
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Debug is on by default for local dev; set DJANGO_DEBUG=0 in production.
+DEBUG = os.environ.get('DJANGO_DEBUG', '1') == '1'
 
-ALLOWED_HOSTS = ['*']
+# Comma-separated list, e.g. DJANGO_ALLOWED_HOSTS=example.com,www.example.com
+ALLOWED_HOSTS = [
+    h.strip() for h in os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',') if h.strip()
+] or (['localhost', '127.0.0.1', '[::1]'] if DEBUG else [])
 
 
 # Application definition
@@ -62,6 +71,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'shop.context_processors.cart',
             ],
         },
     },
@@ -124,6 +134,11 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+
+# Shop settings
+# Delivery charge (Tk) by delivery area.
+DELIVERY_CHARGES = {'inside': 60, 'outside': 120}
+PRODUCTS_PER_PAGE = 12
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration

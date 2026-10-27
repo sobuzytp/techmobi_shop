@@ -21,13 +21,18 @@ quantities, and check out — with the order saved to the database.
 
 ### Bonus features implemented
 - Product search (navbar + product list page)
-- Category filter
+- Category, brand and price-range filters, sorting, and pagination
 - Product discount (percentage-based, shown with a strikethrough old price)
+- Product specifications (RAM, storage, display, battery, camera, color), image gallery, related products
+- Stock-aware cart (cannot add more than available) and atomic checkout
+- Cash on Delivery with delivery charge by area (Inside / Outside Khulna)
+- One order with many items, unique order number, and an **order tracking** page (order number + phone)
+- Custom 404 page
 
 ## Project Structure
 
 ```
-techmobi_project/
+techmobi_shop/
 ├── manage.py
 ├── requirements.txt
 ├── README.md
@@ -58,16 +63,18 @@ techmobi_project/
 
 ## Database Models
 
-- **Product** — name, price, description, image, quantity, category, discount, featured flag.
-- **Customer** — name, phone, address.
-- **Order** — customer (FK), product (FK), quantity, total price, order date, status.
+- **Product** — name, brand, price, description, image, quantity, category, discount, featured flag, specs.
+- **ProductImage** — extra gallery images for a product.
+- **Customer** — name, phone (unique per phone at checkout), address.
+- **Order** — order number, customer, delivery area/charge, payment method, subtotal, total, status.
+- **OrderItem** — order, product, product name/unit price snapshot, quantity, line total.
 
 ## Getting Started
 
 ### 1. Clone the repository
 ```bash
 git clone https://github.com/sobuzytp/techmobi_shop.git
-cd single-vendor-ecommerce
+cd techmobi_shop
 ```
 
 ### 2. Create a virtual environment and install dependencies
@@ -116,8 +123,26 @@ View Products → View Details → Add to Cart → Manage Cart → Checkout → 
 ```
 
 The cart is stored in the user's session (no login required). On checkout, a `Customer` record
-is created and an `Order` is saved for each cart line, then the cart is cleared and the customer
+is created or reused (by phone number) and a single `Order` with one `OrderItem` per cart line is saved, then the cart is cleared and the customer
 is redirected to the **Order Placed Successfully!** page.
+
+## Configuration
+
+Environment variables (all optional for local development):
+
+| Variable | Purpose |
+|---|---|
+| `DJANGO_SECRET_KEY` | Secret key. **Set this in production.** |
+| `DJANGO_DEBUG` | `1` (default) or `0`. Use `0` in production. |
+| `DJANGO_ALLOWED_HOSTS` | Comma-separated hosts, required when `DJANGO_DEBUG=0`. |
+
+Delivery charges are set in `DELIVERY_CHARGES` in `techmobi/settings.py`.
+
+## Tests
+
+```bash
+python manage.py test
+```
 
 ## Notes
 

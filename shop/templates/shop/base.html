@@ -28,6 +28,7 @@
             <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-4">
                 <li class="nav-item"><a class="nav-link" href="{% url 'shop:home' %}">Home</a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url 'shop:product_list' %}">Products</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'shop:track_order' %}">Track Order</a></li>
             </ul>
             <form class="d-flex me-3" role="search" method="get" action="{% url 'shop:product_list' %}">
                 <input class="form-control me-2" type="search" name="q" placeholder="Search phones..."
@@ -74,6 +75,7 @@
                     <li><a href="{% url 'shop:home' %}" class="footer-link">Home</a></li>
                     <li><a href="{% url 'shop:product_list' %}" class="footer-link">Products</a></li>
                     <li><a href="{% url 'shop:cart' %}" class="footer-link">Cart</a></li>
+                    <li><a href="{% url 'shop:track_order' %}" class="footer-link">Track Order</a></li>
                 </ul>
             </div>
             <div class="col-md-4 mb-4">

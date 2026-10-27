@@ -6,15 +6,26 @@
 <div class="container py-5 text-center">
     <i class="bi bi-check-circle-fill success-icon"></i>
     <h1 class="fw-bold mt-3">Order Placed Successfully!</h1>
+    {% if order %}
     <p class="text-muted fs-5">
-        {% if customer_name %}Thank you, {{ customer_name }}! {% endif %}
-        Your order has been received and will be processed shortly.
+        Thank you, {{ order.customer.name }}! Your order has been received and will be processed shortly.
     </p>
-    {% if grand_total %}
-    <p class="fs-5">Order Total: <span class="price-tag">Tk {{ grand_total }}</span></p>
+    <div class="card d-inline-block text-start border-0 shadow-sm p-4 mt-2">
+        <p class="mb-1">Order number: <strong>{{ order.order_number }}</strong></p>
+        <p class="mb-1">Subtotal: Tk {{ order.subtotal }}</p>
+        <p class="mb-1">Delivery ({{ order.get_delivery_area_display }}): Tk {{ order.delivery_charge }}</p>
+        <p class="mb-1 fs-5">Total: <span class="price-tag">Tk {{ order.total_price }}</span></p>
+        <p class="mb-0 text-muted small">Payment: {{ order.get_payment_method_display }}</p>
+    </div>
+    <p class="text-muted small mt-3">Save your order number. You can track the order with your phone number
+        on the <a href="{% url 'shop:track_order' %}">Track Order</a> page.</p>
+    {% else %}
+    <p class="text-muted fs-5">Your order has been received and will be processed shortly.</p>
     {% endif %}
-    <a href="{% url 'shop:product_list' %}" class="btn btn-techmobi btn-lg mt-3">
-        <i class="bi bi-bag"></i> Continue Shopping
-    </a>
+    <div>
+        <a href="{% url 'shop:product_list' %}" class="btn btn-techmobi btn-lg mt-3">
+            <i class="bi bi-bag"></i> Continue Shopping
+        </a>
+    </div>
 </div>
 {% endblock %}

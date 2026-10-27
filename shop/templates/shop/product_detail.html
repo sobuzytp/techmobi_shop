@@ -15,10 +15,20 @@
     <div class="row g-5">
         <div class="col-md-6">
             {% if product.image %}
-            <img src="{{ product.image.url }}" class="img-fluid detail-image" alt="{{ product.name }}">
+            <img src="{{ product.image.url }}" class="img-fluid detail-image" alt="{{ product.name }}" id="main-image">
             {% else %}
             <div class="detail-image d-flex align-items-center justify-content-center" style="height: 350px;">
                 <i class="bi bi-phone" style="font-size: 6rem; color: #ccc;"></i>
+            </div>
+            {% endif %}
+            {% if gallery %}
+            <div class="d-flex gap-2 mt-3 flex-wrap">
+                {% if product.image %}
+                <img src="{{ product.image.url }}" class="gallery-thumb" alt="{{ product.name }}" data-full="{{ product.image.url }}">
+                {% endif %}
+                {% for img in gallery %}
+                <img src="{{ img.image.url }}" class="gallery-thumb" alt="{{ img.alt_text|default:product.name }}" data-full="{{ img.image.url }}">
+                {% endfor %}
             </div>
             {% endif %}
         </div>
@@ -47,6 +57,18 @@
                 {% endif %}
             </p>
 
+            {% if product.specs %}
+            <h5 class="mt-4">Specifications</h5>
+            <table class="table table-sm table-striped">
+                <tbody>
+                    {% for label, value in product.specs %}
+                    <tr><th scope="row" style="width: 35%;">{{ label }}</th><td>{{ value }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+
+            {% if cart_qty %}<p class="small text-muted mb-0">You have {{ cart_qty }} in your cart.</p>{% endif %}
             <form method="post" action="{% url 'shop:add_to_cart' product.pk %}" class="mt-4">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{% url 'shop:product_detail' product.pk %}">
@@ -59,5 +81,41 @@
             </form>
         </div>
     </div>
+
+    {% if related_products %}
+    <h4 class="fw-bold mt-5 mb-3">Related Products</h4>
+    <div class="row g-4">
+        {% for rp in related_products %}
+        <div class="col-6 col-md-3">
+            <a href="{% url 'shop:product_detail' rp.pk %}" class="text-decoration-none">
+                <div class="card product-card h-100">
+                    {% if rp.image %}
+                    <img src="{{ rp.image.url }}" class="card-img-top" alt="{{ rp.name }}">
+                    {% else %}
+                    <div class="card-img-top d-flex align-items-center justify-content-center">
+                        <i class="bi bi-phone" style="font-size: 3rem; color: #ccc;"></i>
+                    </div>
+                    {% endif %}
+                    <div class="card-body">
+                        <h6 class="card-title fw-semibold text-dark">{{ rp.name }}</h6>
+                        <span class="price-tag">Tk {{ rp.discounted_price }}</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.querySelectorAll('.gallery-thumb').forEach(function (thumb) {
+        thumb.addEventListener('click', function () {
+            var main = document.getElementById('main-image');
+            if (main) main.src = thumb.dataset.full;
+        });
+    });
+</script>
 {% endblock %}

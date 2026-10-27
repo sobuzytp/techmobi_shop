@@ -5,22 +5,51 @@
 {% block content %}
 <div class="container py-5">
 
-    <div class="d-flex justify-content-between align-items-center flex-wrap mb-4">
-        <h2 class="fw-bold">
-            {% if query %}Search results for "{{ query }}"{% else %}Our Products{% endif %}
-        </h2>
-        <form class="d-flex gap-2" method="get">
-            {% if query %}<input type="hidden" name="q" value="{{ query }}">{% endif %}
-            <select name="category" class="form-select" onchange="this.form.submit()">
-                <option value="">All Categories</option>
+    <h2 class="fw-bold mb-3">
+        {% if query %}Search results for "{{ query }}"{% else %}Our Products{% endif %}
+    </h2>
+
+    <form class="row g-2 align-items-end mb-4" method="get">
+        <input type="hidden" name="q" value="{{ query }}">
+        <div class="col-6 col-md-3 col-lg-2">
+            <label class="form-label small mb-1">Category</label>
+            <select name="category" class="form-select form-select-sm">
+                <option value="">All</option>
                 {% for cat in categories %}
-                <option value="{{ cat.id }}" {% if selected_category == cat.id|stringformat:"s" %}selected{% endif %}>
-                    {{ cat.name }}
-                </option>
+                <option value="{{ cat.id }}" {% if selected_category == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
                 {% endfor %}
             </select>
-        </form>
-    </div>
+        </div>
+        <div class="col-6 col-md-3 col-lg-2">
+            <label class="form-label small mb-1">Brand</label>
+            <select name="brand" class="form-select form-select-sm">
+                <option value="">All</option>
+                {% for b in brands %}
+                <option value="{{ b }}" {% if selected_brand|lower == b|lower %}selected{% endif %}>{{ b }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-6 col-md-2 col-lg-2">
+            <label class="form-label small mb-1">Min price (Tk)</label>
+            <input type="number" min="0" name="min_price" value="{{ min_price }}" class="form-control form-control-sm">
+        </div>
+        <div class="col-6 col-md-2 col-lg-2">
+            <label class="form-label small mb-1">Max price (Tk)</label>
+            <input type="number" min="0" name="max_price" value="{{ max_price }}" class="form-control form-control-sm">
+        </div>
+        <div class="col-6 col-md-3 col-lg-2">
+            <label class="form-label small mb-1">Sort by</label>
+            <select name="sort" class="form-select form-select-sm">
+                {% for key, label in sort_options %}
+                <option value="{{ key }}" {% if sort == key %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-6 col-md-3 col-lg-2 d-flex gap-2">
+            <button type="submit" class="btn btn-techmobi btn-sm flex-grow-1">Apply</button>
+            <a href="{% url 'shop:product_list' %}" class="btn btn-outline-secondary btn-sm">Reset</a>
+        </div>
+    </form>
 
     <div class="row g-4">
         {% for product in products %}
@@ -55,7 +84,7 @@
                         <a href="{% url 'shop:product_detail' product.pk %}" class="btn btn-outline-techmobi btn-sm">View Details</a>
                         <form method="post" action="{% url 'shop:add_to_cart' product.pk %}">
                             {% csrf_token %}
-                            <input type="hidden" name="next" value="{% url 'shop:product_list' %}">
+                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
                             <button type="submit" class="btn btn-techmobi btn-sm w-100" {% if not product.in_stock %}disabled{% endif %}>
                                 <i class="bi bi-cart-plus"></i> Add to Cart
                             </button>
@@ -71,5 +100,29 @@
         </div>
         {% endfor %}
     </div>
+
+    {% if page_obj.has_other_pages %}
+    <nav class="mt-5" aria-label="Product pages">
+        <ul class="pagination justify-content-center flex-wrap">
+            {% if page_obj.has_previous %}
+            <li class="page-item"><a class="page-link" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">&laquo;</a></li>
+            {% else %}
+            <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+                {% if num == page_obj.number %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% elif num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
+                <li class="page-item"><a class="page-link" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ num }}">{{ num }}</a></li>
+                {% endif %}
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <li class="page-item"><a class="page-link" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">&raquo;</a></li>
+            {% else %}
+            <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
 </div>
 {% endblock %}

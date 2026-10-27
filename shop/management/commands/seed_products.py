@@ -15,6 +15,7 @@ class Command(BaseCommand):
         products = [
             {
                 'name': 'TechMobi Nova X12',
+                'brand': 'TechMobi', 'ram': '8GB', 'storage': '256GB', 'display': '6.7" AMOLED', 'battery': '5000mAh', 'camera': '108MP', 'color': 'Black, Blue',
                 'price': 45999,
                 'description': 'Flagship smartphone with a 6.7" AMOLED display, 5000mAh battery, and a 108MP camera.',
                 'quantity': 25,
@@ -24,6 +25,7 @@ class Command(BaseCommand):
             },
             {
                 'name': 'TechMobi Lite S5',
+                'brand': 'TechMobi', 'ram': '4GB', 'storage': '64GB', 'display': '6.5" LCD', 'battery': '5000mAh', 'camera': '50MP', 'color': 'Black, Green',
                 'price': 15999,
                 'description': 'Affordable everyday smartphone with a 6.5" display and long-lasting battery life.',
                 'quantity': 40,
@@ -32,6 +34,7 @@ class Command(BaseCommand):
             },
             {
                 'name': 'TechMobi Pro Max 14',
+                'brand': 'TechMobi', 'ram': '12GB', 'storage': '512GB', 'display': '6.8" LTPO 120Hz', 'battery': '5200mAh', 'camera': '200MP triple', 'color': 'Titanium',
                 'price': 68999,
                 'description': 'Premium flagship with titanium frame, triple camera setup, and 120Hz display.',
                 'quantity': 12,
@@ -41,6 +44,7 @@ class Command(BaseCommand):
             },
             {
                 'name': 'TechMobi Tab Air',
+                'brand': 'TechMobi', 'ram': '6GB', 'storage': '128GB', 'display': '10.5" IPS', 'battery': '8000mAh',
                 'price': 27999,
                 'description': '10.5" tablet perfect for study, work, and entertainment with stylus support.',
                 'quantity': 18,
@@ -49,6 +53,7 @@ class Command(BaseCommand):
             },
             {
                 'name': 'TechMobi Buds Pro',
+                'brand': 'TechMobi', 'battery': '30 hours', 'color': 'White, Black',
                 'price': 3999,
                 'description': 'True wireless earbuds with active noise cancellation and 30-hour battery life.',
                 'quantity': 60,
@@ -58,6 +63,7 @@ class Command(BaseCommand):
             },
             {
                 'name': 'TechMobi FastCharge 65W',
+                'brand': 'TechMobi',
                 'price': 1799,
                 'description': 'GaN fast charger with USB-C PD, compatible with all major smartphone brands.',
                 'quantity': 80,
@@ -65,6 +71,7 @@ class Command(BaseCommand):
             },
             {
                 'name': 'TechMobi Watch Fit',
+                'brand': 'TechMobi', 'display': '1.4" AMOLED', 'battery': '7 days',
                 'price': 5499,
                 'description': 'Smartwatch with heart-rate monitoring, SpO2 tracking, and 7-day battery life.',
                 'quantity': 30,
@@ -73,6 +80,7 @@ class Command(BaseCommand):
             },
             {
                 'name': 'TechMobi Armor Case',
+                'brand': 'TechMobi',
                 'price': 899,
                 'description': 'Rugged shockproof case with military-grade drop protection.',
                 'quantity': 100,

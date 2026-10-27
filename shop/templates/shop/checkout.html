@@ -23,15 +23,45 @@
                     <div class="mb-3">
                         <label class="form-label" for="{{ form.phone.id_for_label }}">Phone Number</label>
                         {{ form.phone }}
-                        <div class="invalid-feedback">Please enter a valid phone number.</div>
+                        <div class="invalid-feedback">Enter a valid mobile number, e.g. 01712345678.</div>
                         {% for error in form.phone.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
                     </div>
 
-                    <div class="mb-4">
+                    <div class="mb-3">
                         <label class="form-label" for="{{ form.address.id_for_label }}">Address</label>
                         {{ form.address }}
                         <div class="invalid-feedback">Please enter your delivery address.</div>
                         {% for error in form.address.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label d-block">Delivery Area</label>
+                        {% for radio in form.delivery_area %}
+                        <div class="form-check">
+                            {{ radio.tag }}
+                            <label class="form-check-label" for="{{ radio.id_for_label }}">
+                                {{ radio.choice_label }}
+                                (Tk <span class="area-charge" data-area="{{ radio.data.value }}">{% if radio.data.value == 'inside' %}{{ delivery_charges.inside }}{% else %}{{ delivery_charges.outside }}{% endif %}</span>)
+                            </label>
+                        </div>
+                        {% endfor %}
+                        {% for error in form.delivery_area.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label d-block">Payment Method</label>
+                        {% for radio in form.payment_method %}
+                        <div class="form-check">
+                            {{ radio.tag }}
+                            <label class="form-check-label" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label>
+                        </div>
+                        {% endfor %}
+                        {% for error in form.payment_method.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label" for="{{ form.note.id_for_label }}">Note (optional)</label>
+                        {{ form.note }}
                     </div>
 
                     <button type="submit" class="btn btn-techmobi btn-lg w-100">
@@ -52,9 +82,18 @@
                     </li>
                     {% endfor %}
                 </ul>
+                <div class="d-flex justify-content-between">
+                    <span>Subtotal</span>
+                    <span>Tk {{ subtotal }}</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span>Delivery</span>
+                    <span>Tk <span id="delivery-charge">{{ delivery_charge }}</span></span>
+                </div>
+                <hr>
                 <div class="d-flex justify-content-between fw-bold fs-5">
                     <span>Total</span>
-                    <span class="price-tag">Tk {{ grand_total }}</span>
+                    <span class="price-tag">Tk <span id="order-total">{{ grand_total }}</span></span>
                 </div>
             </div>
         </div>
@@ -64,10 +103,18 @@
 
 {% block extra_js %}
 <script>
-    // Required for Bootstrap's built-in validation styles to apply to Django-rendered inputs.
-    document.querySelectorAll('.needs-validation input, .needs-validation textarea').forEach(function (el) {
-        el.classList.add('form-control');
-        el.setAttribute('required', 'required');
-    });
+    // Update delivery charge and total when the delivery area changes.
+    (function () {
+        var subtotal = parseFloat("{{ subtotal }}");
+        var charges = {inside: {{ delivery_charges.inside }}, outside: {{ delivery_charges.outside }}};
+        document.querySelectorAll('input[name="delivery_area"]').forEach(function (radio) {
+            radio.addEventListener('change', function () {
+                if (!radio.checked) return;
+                var charge = charges[radio.value];
+                document.getElementById('delivery-charge').textContent = charge.toFixed(2);
+                document.getElementById('order-total').textContent = (subtotal + charge).toFixed(2);
+            });
+        });
+    })();
 </script>
 {% endblock %}

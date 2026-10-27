@@ -34,6 +34,9 @@
                                 <a href="{% url 'shop:product_detail' item.product.pk %}" class="fw-semibold text-dark text-decoration-none">
                                     {{ item.product.name }}
                                 </a>
+                                {% if item.over_stock %}
+                                <div class="text-danger small">Only {{ item.product.quantity }} in stock. Please reduce the quantity.</div>
+                                {% endif %}
                             </div>
                         </div>
                     </td>
@@ -49,7 +52,7 @@
                             <form method="post" action="{% url 'shop:update_cart' item.product.pk %}">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="increase">
-                                <button type="submit" class="btn btn-outline-secondary cart-qty-btn">+</button>
+                                <button type="submit" class="btn btn-outline-secondary cart-qty-btn" {% if item.quantity >= item.product.quantity %}disabled{% endif %}>+</button>
                             </form>
                         </div>
                     </td>
@@ -71,7 +74,8 @@
 
     <div class="d-flex justify-content-end">
         <div class="text-end" style="min-width: 280px;">
-            <h4>Grand Total: <span id="cart-grand-total" class="price-tag">Tk {{ grand_total }}</span></h4>
+            <h4>Subtotal: <span id="cart-grand-total" class="price-tag">Tk {{ grand_total }}</span></h4>
+            <p class="text-muted small mb-0">Delivery charge is added at checkout.</p>
             <a href="{% url 'shop:product_list' %}" class="btn btn-outline-techmobi mt-2">
                 <i class="bi bi-arrow-left"></i> Continue Shopping
             </a>
