@@ -1,0 +1,37 @@
+{% extends 'shop/base.html' %}
+
+{% block title %}My Orders - TechMobi{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <h2 class="fw-bold mb-4"><i class="bi bi-bag-check"></i> My Orders</h2>
+
+    {% if orders %}
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr><th>Order</th><th>Date</th><th>Items</th><th>Total</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                <tr>
+                    <td class="fw-semibold">{{ order.order_number }}</td>
+                    <td>{{ order.order_date|date:"d M Y" }}</td>
+                    <td>{{ order.items.all|length }}</td>
+                    <td>Tk {{ order.total_price }}</td>
+                    <td><span class="badge bg-{% if order.status == 'delivered' %}success{% elif order.status == 'cancelled' %}danger{% else %}warning text-dark{% endif %}">{{ order.get_status_display }}</span></td>
+                    <td><a class="btn btn-sm btn-outline-techmobi" href="{% url 'shop:my_order_detail' order.order_number %}">View</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-bag" style="font-size: 4rem; color: #ccc;"></i>
+        <p class="mt-3 text-muted">You have not placed any orders while logged in yet.</p>
+        <a href="{% url 'shop:product_list' %}" class="btn btn-techmobi">Browse Products</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

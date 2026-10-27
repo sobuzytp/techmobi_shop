@@ -2,6 +2,8 @@ from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import login
+from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import DecimalField, ExpressionWrapper, F, Q, Value
@@ -10,7 +12,7 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from .forms import CheckoutForm, TrackOrderForm
+from .forms import CheckoutForm, SignupForm, TrackOrderForm
 from .models import Category, Customer, Order, OrderItem, Product
 
 CART_SESSION_KEY = 'cart'
@@ -231,6 +233,7 @@ def cart_view(request):
     })
 
 
+@login_required
 def checkout(request):
     items, subtotal = _cart_items(request)
 
@@ -250,7 +253,7 @@ def checkout(request):
                 return redirect('shop:order_success')
             return redirect('shop:cart')
     else:
-        form = CheckoutForm()
+        form = CheckoutForm(initial=_checkout_initial(request.user))
 
     delivery_charges = {k: v for k, v in settings.DELIVERY_CHARGES.items()}
     selected_area = form['delivery_area'].value() or 'inside'
@@ -263,6 +266,17 @@ def checkout(request):
         'grand_total': subtotal + delivery_charge,
         'delivery_charges': delivery_charges,
     })
+
+
+def _checkout_initial(user):
+    """Prefill the checkout form for logged-in customers from their account and last order."""
+    if not user.is_authenticated:
+        return {}
+    initial = {'name': user.get_full_name() or user.first_name, 'phone': user.username}
+    last = user.orders.order_by('-order_date').first()
+    if last:
+        initial.update(address=last.delivery_address, delivery_area=last.delivery_area)
+    return initial
 
 
 def _place_order(request, form):
@@ -301,6 +315,7 @@ def _place_order(request, form):
         delivery_charge = Order.delivery_charge_for(data['delivery_area'])
         order = Order.objects.create(
             customer=customer,
+            user=request.user if request.user.is_authenticated else None,
             delivery_address=data['address'],
             delivery_area=data['delivery_area'],
             payment_method=data['payment_method'],
@@ -350,3 +365,30 @@ def track_order(request):
 
 def page_not_found(request, exception):
     return render(request, 'shop/404.html', status=404)
+
+
+# ---------- accounts ----------
+
+def signup(request):
+    if request.user.is_authenticated:
+        return redirect('shop:home')
+    form = SignupForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        user = form.save()
+        login(request, user)
+        messages.success(request, f'Welcome, {user.first_name}! Your account has been created.')
+        return redirect(_safe_next(request, reverse('shop:home')))
+    return render(request, 'shop/signup.html', {'form': form, 'next': request.GET.get('next', '')})
+
+
+@login_required
+def my_orders(request):
+    orders = request.user.orders.prefetch_related('items')
+    return render(request, 'shop/my_orders.html', {'orders': orders})
+
+
+@login_required
+def my_order_detail(request, order_number):
+    order = get_object_or_404(
+        request.user.orders.prefetch_related('items'), order_number=order_number)
+    return render(request, 'shop/my_order_detail.html', {'order': order})

@@ -1,0 +1,29 @@
+{% extends 'shop/base.html' %}
+
+{% block title %}Order {{ order.order_number }} - TechMobi{% endblock %}
+
+{% block content %}
+<div class="container py-5" style="max-width: 720px;">
+    <a href="{% url 'shop:my_orders' %}" class="text-decoration-none"><i class="bi bi-arrow-left"></i> All orders</a>
+    <div class="card p-4 border-0 shadow-sm mt-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="mb-0">Order {{ order.order_number }}</h4>
+            <span class="badge bg-{% if order.status == 'delivered' %}success{% elif order.status == 'cancelled' %}danger{% else %}warning text-dark{% endif %}">{{ order.get_status_display }}</span>
+        </div>
+        <p class="text-muted small mb-1">Placed on {{ order.order_date|date:"d M Y, H:i" }}</p>
+        <p class="text-muted small">Deliver to: {{ order.delivery_address }} ({{ order.get_delivery_area_display }})</p>
+        <ul class="list-group list-group-flush mb-3">
+            {% for item in order.items.all %}
+            <li class="list-group-item d-flex justify-content-between px-0">
+                <span>{{ item.product_name }} &times; {{ item.quantity }}</span>
+                <span>Tk {{ item.line_total }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        <div class="d-flex justify-content-between"><span>Subtotal</span><span>Tk {{ order.subtotal }}</span></div>
+        <div class="d-flex justify-content-between"><span>Delivery</span><span>Tk {{ order.delivery_charge }}</span></div>
+        <div class="d-flex justify-content-between fw-bold"><span>Total</span><span>Tk {{ order.total_price }}</span></div>
+        <p class="text-muted small mt-3 mb-0">Payment: {{ order.get_payment_method_display }}</p>
+    </div>
+</div>
+{% endblock %}

@@ -72,9 +72,12 @@ class CartTests(TestCase):
 @override_settings(DELIVERY_CHARGES={'inside': 60, 'outside': 120})
 class CheckoutTests(TestCase):
     def setUp(self):
+        from django.contrib.auth import get_user_model
         self.p1 = make_product('A', '1000', 5)
         self.p2 = make_product('B', '500', 3, discount_percent=10)
         self.url = reverse('shop:checkout')
+        self.user = get_user_model().objects.create_user('01600000000', password='S3cure-pass-91')
+        self.client.force_login(self.user)
 
     def fill_cart(self):
         self.client.post(reverse('shop:add_to_cart', args=[self.p1.pk]))
@@ -202,3 +205,107 @@ class ProductListTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertNotIn(cheap, resp.context['related_products'])
         self.assertEqual(self.client.get(reverse('shop:product_detail', args=[9999])).status_code, 404)
+
+
+class AccountTests(TestCase):
+    def signup_data(self, **extra):
+        data = {'name': 'Rahim', 'phone': '01712345678',
+                'password1': 'S3cure-pass-91', 'password2': 'S3cure-pass-91'}
+        data.update(extra)
+        return data
+
+    def test_signup_creates_user_and_logs_in(self):
+        resp = self.client.post(reverse('shop:signup'), self.signup_data())
+        self.assertRedirects(resp, reverse('shop:home'))
+        from django.contrib.auth import get_user_model
+        user = get_user_model().objects.get(username='01712345678')
+        self.assertEqual(user.first_name, 'Rahim')
+        self.assertEqual(int(self.client.session['_auth_user_id']), user.pk)
+
+    def test_signup_normalises_phone(self):
+        self.client.post(reverse('shop:signup'), self.signup_data(phone='+8801712345678'))
+        from django.contrib.auth import get_user_model
+        self.assertTrue(get_user_model().objects.filter(username='01712345678').exists())
+
+    def test_signup_rejects_duplicate_phone_bad_phone_and_weak_password(self):
+        self.client.post(reverse('shop:signup'), self.signup_data())
+        self.client.logout()
+        for bad in (self.signup_data(), self.signup_data(phone='123'),
+                    self.signup_data(phone='01812345678', password1='12345678', password2='12345678'),
+                    self.signup_data(phone='01912345678', password2='different-pass-1')):
+            resp = self.client.post(reverse('shop:signup'), bad)
+            self.assertEqual(resp.status_code, 200)
+        from django.contrib.auth import get_user_model
+        self.assertEqual(get_user_model().objects.count(), 1)
+
+    def test_login_with_phone_variants_and_wrong_password(self):
+        self.client.post(reverse('shop:signup'), self.signup_data())
+        self.client.logout()
+        resp = self.client.post(reverse('shop:login'), {'username': '+880 1712-345678', 'password': 'S3cure-pass-91'})
+        self.assertEqual(resp.status_code, 302)
+        self.client.logout()
+        resp = self.client.post(reverse('shop:login'), {'username': '01712345678', 'password': 'nope'})
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+    def test_login_external_next_is_ignored(self):
+        self.client.post(reverse('shop:signup'), self.signup_data())
+        self.client.logout()
+        resp = self.client.post(reverse('shop:login'), {
+            'username': '01712345678', 'password': 'S3cure-pass-91', 'next': 'https://evil.example.com/'})
+        self.assertRedirects(resp, reverse('shop:home'), fetch_redirect_response=False)
+
+    def test_logout_requires_post(self):
+        self.client.post(reverse('shop:signup'), self.signup_data())
+        self.assertEqual(self.client.get(reverse('shop:logout')).status_code, 405)
+        self.client.post(reverse('shop:logout'))
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+    def test_my_orders_requires_login(self):
+        resp = self.client.get(reverse('shop:my_orders'))
+        self.assertRedirects(resp, reverse('shop:login') + '?next=/my-orders/')
+
+    def test_order_attached_to_user_prefill_and_privacy(self):
+        product = make_product(quantity=5)
+        self.client.post(reverse('shop:signup'), self.signup_data())
+        self.client.post(reverse('shop:add_to_cart', args=[product.pk]))
+        self.client.post(reverse('shop:checkout'), {
+            'name': 'Rahim', 'phone': '01712345678', 'address': 'Sonadanga, Khulna',
+            'delivery_area': 'inside', 'payment_method': 'cod', 'note': ''})
+        order = Order.objects.get()
+        self.assertIsNotNone(order.user)
+
+        resp = self.client.get(reverse('shop:my_orders'))
+        self.assertEqual(list(resp.context['orders']), [order])
+        self.assertEqual(self.client.get(reverse('shop:my_order_detail', args=[order.order_number])).status_code, 200)
+
+        # checkout is prefilled from the account and last order
+        self.client.post(reverse('shop:add_to_cart', args=[product.pk]))
+        resp = self.client.get(reverse('shop:checkout'))
+        self.assertEqual(resp.context['form'].initial['address'], 'Sonadanga, Khulna')
+        self.assertEqual(resp.context['form'].initial['phone'], '01712345678')
+
+        # another user cannot open this order
+        self.client.post(reverse('shop:logout'))
+        self.client.post(reverse('shop:signup'), self.signup_data(phone='01812345678', name='Karim'))
+        self.assertEqual(self.client.get(reverse('shop:my_order_detail', args=[order.order_number])).status_code, 404)
+        self.assertEqual(list(self.client.get(reverse('shop:my_orders')).context['orders']), [])
+
+    def test_checkout_requires_login(self):
+        product = make_product(quantity=5)
+        self.client.post(reverse('shop:add_to_cart', args=[product.pk]))
+        resp = self.client.get(reverse('shop:checkout'))
+        self.assertRedirects(resp, reverse('shop:login') + '?next=/checkout/')
+        resp = self.client.post(reverse('shop:checkout'), {
+            'name': 'Guest', 'phone': '01512345678', 'address': 'Dhaka',
+            'delivery_area': 'outside', 'payment_method': 'cod', 'note': ''})
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(Order.objects.count(), 0)
+
+    def test_guest_can_still_use_cart_and_is_sent_back_to_checkout_after_login(self):
+        product = make_product(quantity=5)
+        self.client.post(reverse('shop:add_to_cart', args=[product.pk]))
+        self.assertEqual(self.client.get(reverse('shop:cart')).status_code, 200)
+        self.client.post(reverse('shop:signup'), self.signup_data(next='/checkout/'))
+        self.assertEqual(self.client.get(reverse('shop:checkout')).status_code, 200)
+        self.assertEqual(self.client.session['cart'], {str(product.pk): 1})

@@ -39,6 +39,28 @@
                 <i class="bi bi-cart3 fs-5"></i> Cart
                 <span class="badge rounded-pill bg-warning text-dark ms-1">{{ cart_count|default:0 }}</span>
             </a>
+            {% if user.is_authenticated %}
+            <div class="dropdown ms-lg-2 mt-2 mt-lg-0">
+                <button class="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-person-circle"></i> {{ user.first_name|default:user.username }}
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="{% url 'shop:my_orders' %}">My Orders</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <form method="post" action="{% url 'shop:logout' %}">
+                            {% csrf_token %}
+                            <button type="submit" class="dropdown-item">Log out</button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
+            {% else %}
+            <div class="ms-lg-2 mt-2 mt-lg-0 d-flex gap-2">
+                <a href="{% url 'shop:login' %}" class="btn btn-outline-light">Log in</a>
+                <a href="{% url 'shop:signup' %}" class="btn btn-warning">Sign up</a>
+            </div>
+            {% endif %}
         </div>
     </div>
 </nav>

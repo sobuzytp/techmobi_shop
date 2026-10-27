@@ -123,6 +123,10 @@ class Order(models.Model):
         max_length=12, unique=True, default=generate_order_number, editable=False
     )
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='orders')
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='orders', help_text="Set when the customer was logged in at checkout.",
+    )
     delivery_address = models.TextField(blank=True)
     delivery_area = models.CharField(max_length=10, choices=AREA_CHOICES, default='inside')
     payment_method = models.CharField(max_length=10, choices=PAYMENT_CHOICES, default='cod')

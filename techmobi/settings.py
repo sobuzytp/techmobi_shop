@@ -140,6 +140,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 DELIVERY_CHARGES = {'inside': 60, 'outside': 120}
 PRODUCTS_PER_PAGE = 12
 
+# Accounts
+LOGIN_URL = 'shop:login'
+LOGIN_REDIRECT_URL = 'shop:home'
+LOGOUT_REDIRECT_URL = 'shop:home'
+
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
