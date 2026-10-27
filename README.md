@@ -28,6 +28,7 @@ quantities, and check out — with the order saved to the database.
 - Cash on Delivery with delivery charge by area (Inside / Outside Khulna)
 - One order with many items, unique order number, and an **order tracking** page (order number + phone)
 - Custom 404 page
+- **Accounts**: sign up / log in with phone number + password, "My Orders" history, checkout prefilled from your account and last order (guest checkout still works)
 
 ## Project Structure
 

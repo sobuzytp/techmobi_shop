@@ -1,5 +1,8 @@
+from django.contrib.auth import views as auth_views
 from django.urls import path
+
 from . import views
+from .forms import PhoneLoginForm
 
 app_name = 'shop'
 
@@ -13,4 +16,13 @@ urlpatterns = [
     path('checkout/', views.checkout, name='checkout'),
     path('order-success/', views.order_success, name='order_success'),
     path('track-order/', views.track_order, name='track_order'),
+
+    # accounts
+    path('signup/', views.signup, name='signup'),
+    path('login/', auth_views.LoginView.as_view(
+        template_name='shop/login.html', authentication_form=PhoneLoginForm,
+        redirect_authenticated_user=True), name='login'),
+    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+    path('my-orders/', views.my_orders, name='my_orders'),
+    path('my-orders/<str:order_number>/', views.my_order_detail, name='my_order_detail'),
 ]
