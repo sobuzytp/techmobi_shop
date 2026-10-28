@@ -42,17 +42,29 @@ class LowStockFilter(admin.SimpleListFilter):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('name', 'brand', 'category', 'condition', 'warranty_months', 'price', 'discount_percent',
-                    'quantity', 'is_featured', 'created_at')
+    list_display = ('name', 'brand', 'category', 'price', 'discount_percent', 'quantity',
+                    'is_featured', 'details_status', 'created_at')
     list_filter = ('category', 'condition', 'is_featured', LowStockFilter)
-    search_fields = ('name', 'brand', 'description')
+    search_fields = ('name', 'brand', 'description', 'sku')
     list_editable = ('price', 'quantity', 'is_featured', 'discount_percent')
     inlines = [ProductImageInline]
     fieldsets = (
-        (None, {'fields': ('name', 'brand', 'category', 'condition', 'warranty_months', 'price',
-                           'discount_percent', 'quantity', 'is_featured', 'image', 'description')}),
-        ('Specifications', {'fields': ('ram', 'storage', 'display', 'battery', 'camera', 'color')}),
+        ('Basics', {'fields': ('name', 'brand', 'sku', 'category', 'condition', 'warranty_months', 'price',
+                               'discount_percent', 'quantity', 'is_featured', 'image')}),
+        ('Description (customers and the AI both read this)', {'fields': (
+            'short_description', 'description', 'highlights')}),
+        ('Specifications', {'fields': (
+            'processor', 'ram', 'storage', 'display', 'battery', 'charging', 'camera', 'os', 'network',
+            'sim', 'color', 'extra_specs')}),
+        ('Box and questions', {'fields': ('in_the_box', 'faq')}),
+        ('For the AI assistant (not on the product page - no secrets or cost prices)', {'fields': ('ai_notes',)}),
     )
+
+    @admin.display(description='Details')
+    def details_status(self, obj):
+        filled, total = obj.completeness
+        color = '#198754' if filled >= total - 2 else '#fd7e14' if filled >= total // 2 else '#dc3545'
+        return format_html('<b style="color:{}">{}/{}</b>', color, filled, total)
 
 
 @admin.register(Customer)

@@ -21,9 +21,12 @@
     <div class="card-body d-flex flex-column">
         {% if product.category %}<div class="product-cat">{{ product.category.name }}</div>{% endif %}
         <h6 class="product-title"><a href="{% url 'shop:product_detail' product.pk %}">{{ product.name }}</a></h6>
+        {% if product.brand %}<div class="product-brand">{{ product.brand }}</div>{% endif %}
         {% if product.ram or product.storage %}
         <div class="product-specs">{% if product.ram %}{{ product.ram }}{% endif %}{% if product.ram and product.storage %} &middot; {% endif %}{% if product.storage %}{{ product.storage }}{% endif %}</div>
         {% endif %}
+        {% if product.card_chips %}<div class="spec-chips">{% for chip in product.card_chips %}<span>{{ chip }}</span>{% endfor %}</div>{% endif %}
+        {% if product.short_description %}<p class="product-blurb">{{ product.short_description }}</p>{% endif %}
         <div class="mt-auto pt-2">
             <div class="mb-2">
                 <span class="price-tag">Tk {{ product.discounted_price|taka }}</span>

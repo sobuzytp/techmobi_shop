@@ -61,6 +61,26 @@ class Product(models.Model):
     warranty_months = models.PositiveIntegerField(
         default=0, help_text="Warranty in months. 0 = no warranty.")
 
+    # More detail - shown on the product page and sent to the AI assistant through the API
+    sku = models.CharField("SKU / model code", max_length=50, blank=True)
+    short_description = models.CharField(
+        max_length=300, blank=True, help_text="One or two lines shown on the product card, e.g. 'Flagship phone with 200MP camera'.")
+    highlights = models.TextField(
+        blank=True, help_text="Key selling points, ONE PER LINE, e.g. '200MP main camera'.")
+    processor = models.CharField("Processor / chipset", max_length=100, blank=True)
+    os = models.CharField("Operating system", max_length=100, blank=True)
+    network = models.CharField(max_length=100, blank=True, help_text="e.g. 5G, 4G LTE, Wi-Fi 7")
+    sim = models.CharField("SIM", max_length=100, blank=True, help_text="e.g. Dual SIM (nano + eSIM)")
+    charging = models.CharField(max_length=100, blank=True, help_text="e.g. 67W fast charging")
+    extra_specs = models.TextField(
+        blank=True, help_text="Any other specs, ONE PER LINE as 'Label: value', e.g. 'Weight: 214 g'.")
+    in_the_box = models.TextField(blank=True, help_text="What the customer gets, ONE ITEM PER LINE.")
+    faq = models.TextField(
+        blank=True, help_text="Common questions. Write 'Q: question' then 'A: answer' on the next line; leave a blank line between pairs.")
+    ai_notes = models.TextField(
+        "Notes for the AI assistant", blank=True,
+        help_text="Not shown on the product page, but sent to the AI assistant (and visible in the public API, so never write cost prices or secrets). Tell the AI who this suits, how it compares, what to recommend it for, what to watch out for.")
+
     class Meta:
         ordering = ['-created_at']
 
@@ -69,6 +89,90 @@ class Product(models.Model):
 
     def get_absolute_url(self):
         return reverse('shop:product_detail', args=[self.pk])
+
+    @staticmethod
+    def _lines(text):
+        return [ln.strip(' \t-•*') for ln in (text or '').splitlines() if ln.strip(' \t-•*')]
+
+    @property
+    def highlight_list(self):
+        return self._lines(self.highlights)
+
+    @property
+    def box_list(self):
+        return self._lines(self.in_the_box)
+
+    @property
+    def extra_spec_pairs(self):
+        pairs = []
+        for line in self._lines(self.extra_specs):
+            label, sep, value = line.partition(':')
+            if sep and label.strip() and value.strip():
+                pairs.append((label.strip(), value.strip()))
+            else:
+                pairs.append(('More', line))
+        return pairs
+
+    @property
+    def faq_pairs(self):
+        pairs, q, a = [], None, []
+        for raw in (self.faq or '').splitlines():
+            line = raw.strip()
+            low = line.lower()
+            if low.startswith('q:') or low.startswith('q.'):
+                if q:
+                    pairs.append((q, ' '.join(a).strip()))
+                q, a = line[2:].strip(), []
+            elif low.startswith('a:') or low.startswith('a.'):
+                a.append(line[2:].strip())
+            elif line and q is not None:
+                a.append(line)
+        if q:
+            pairs.append((q, ' '.join(a).strip()))
+        return [(question, answer) for question, answer in pairs if question and answer]
+
+    @property
+    def card_chips(self):
+        """Up to three short spec chips for the product card."""
+        chips = [self.processor, self.display, self.battery, self.camera]
+        short = []
+        for chip in chips:
+            chip = (chip or '').replace(',', '(').split('(')[0].strip()
+            if chip:
+                short.append(chip if len(chip) <= 24 else chip[:23].rstrip() + '…')
+        return short[:3]
+
+    @property
+    def completeness(self):
+        """(filled, total) for the fields that make the AI and customers well informed."""
+        checks = [
+            len(self.description.strip()) >= 40, bool(self.short_description), bool(self.highlight_list),
+            bool(self.ram or self.storage), bool(self.display), bool(self.battery), bool(self.camera),
+            bool(self.processor), bool(self.box_list), bool(self.faq_pairs), bool(self.ai_notes.strip()),
+            bool(self.image), bool(self.warranty_months),
+        ]
+        return sum(checks), len(checks)
+
+    def details_text(self):
+        """Everything we know about the product as plain text (sent to the AI assistant)."""
+        lines = [f"{self.name} (Tk {self.discounted_price})"]
+        if self.short_description:
+            lines.append(self.short_description)
+        if self.description:
+            lines.append(self.description)
+        if self.highlight_list:
+            lines.append("Highlights: " + "; ".join(self.highlight_list))
+        if self.specs or self.extra_spec_pairs:
+            lines.append("Specs: " + "; ".join(f"{k}: {v}" for k, v in self.specs + self.extra_spec_pairs))
+        if self.box_list:
+            lines.append("In the box: " + ", ".join(self.box_list))
+        for q, a in self.faq_pairs:
+            lines.append(f"Q: {q} A: {a}")
+        lines.append("In stock." if self.in_stock else "Out of stock.")
+        lines.append("Payment: Cash on Delivery only.")
+        if self.ai_notes.strip():
+            lines.append("Sales notes: " + " ".join(self.ai_notes.split()))
+        return "\n".join(lines)
 
     @property
     def discounted_price(self):
@@ -85,11 +189,16 @@ class Product(models.Model):
         """List of (label, value) pairs for the non-empty specifications."""
         pairs = [
             ('Brand', self.brand),
+            ('Processor', self.processor),
             ('RAM', self.ram),
             ('Storage', self.storage),
             ('Display', self.display),
             ('Battery', self.battery),
+            ('Charging', self.charging),
             ('Camera', self.camera),
+            ('Operating system', self.os),
+            ('Network', self.network),
+            ('SIM', self.sim),
             ('Color', self.color),
             ('Condition', self.get_condition_display()),
             ('Warranty', self.warranty_label),

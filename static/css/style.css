@@ -341,3 +341,31 @@ h1, h2, h3, h4, h5, h6 { letter-spacing: -0.01em; }
 
 /* Order timeline / tables */
 .table > :not(caption) > * > * { padding-top: .8rem; padding-bottom: .8rem; }
+
+/* Brand logo */
+.brand-logo { height: 50px; width: auto; display: block; border-radius: 8px; }
+.footer-logo { height: 56px; width: auto; border-radius: 8px; }
+.navbar-brand { padding: 0; }
+
+/* Product cards: fixed image box so every card lines up, plus details */
+.product-media { overflow: hidden; }
+.product-media a { position: absolute; inset: 0; }
+.product-brand { font-size: .72rem; font-weight: 600; color: var(--techmobi-accent-2); text-transform: uppercase; letter-spacing: .04em; }
+.spec-chips { display: flex; flex-wrap: wrap; gap: .25rem; margin-top: .35rem; }
+.spec-chips span { background: #eef1f7; color: #3b4558; border-radius: 6px; font-size: .7rem; padding: .12rem .4rem; }
+.product-blurb { font-size: .78rem; color: var(--tm-muted); margin: .4rem 0 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Product page */
+.highlight-list { list-style: none; padding: 0; margin: 0 0 1rem; }
+.highlight-list li { padding: .2rem 0; display: flex; gap: .5rem; align-items: baseline; }
+.highlight-list i { color: #198754; flex: none; }
+.trust-box { background: #fff; border: 1px solid var(--tm-border); border-radius: var(--tm-radius); padding: .75rem 1rem; margin: .75rem 0 1rem; display: grid; gap: .45rem; font-size: .88rem; }
+.trust-box > div { display: flex; gap: .6rem; align-items: baseline; }
+.trust-box i { color: var(--techmobi-accent-2); flex: none; }
+.detail-tabs .nav-link { color: #4b5563; font-weight: 600; }
+.detail-tabs .nav-link.active { color: var(--techmobi-primary); border-bottom-color: #fff; }
+.detail-panel { background: #fff; border: 1px solid var(--tm-border); border-top: 0; border-radius: 0 0 var(--tm-radius) var(--tm-radius); padding: 1.25rem 1.5rem; }
+.spec-table th { width: 32%; font-weight: 600; }
+.faq-item { padding: .6rem 0; border-bottom: 1px solid var(--tm-border); }
+.faq-item:last-child { border-bottom: 0; }
+.desc-text p:last-child { margin-bottom: 0; }

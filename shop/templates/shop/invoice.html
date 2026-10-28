@@ -1,4 +1,4 @@
-{% load shop_extras %}<!DOCTYPE html>
+{% load static shop_extras %}<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -23,7 +23,7 @@
     <button onclick="window.print()">Print</button>
     <div class="head">
         <div>
-            <h1>TechMobi</h1>
+            <img src="{% static 'img/logo.png' %}" alt="TechMobi" style="height:52px">
             <div class="muted">{{ shop_settings.shop_address }}<br>{{ shop_settings.shop_phone }}</div>
         </div>
         <div style="text-align:right">
