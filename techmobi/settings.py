@@ -148,6 +148,12 @@ PRODUCTS_PER_PAGE = 12
 # Behind a proxy/CDN, e.g. DJANGO_CLIENT_IP_HEADER=HTTP_X_FORWARDED_FOR or HTTP_CF_CONNECTING_IP
 CLIENT_IP_HEADER = os.environ.get('DJANGO_CLIENT_IP_HEADER', '')
 
+# aijobab.com assistant sync (see README). Keep the key in the environment, never in git.
+AIJOBAB_SYNC_URL = os.environ.get('AIJOBAB_SYNC_URL', '')
+AIJOBAB_API_KEY = os.environ.get('AIJOBAB_API_KEY', '')
+# Header used to send the key; set AIJOBAB_AUTH_HEADER=X-API-Key for services that want that instead of a Bearer token.
+AIJOBAB_AUTH_HEADER = os.environ.get('AIJOBAB_AUTH_HEADER', 'Authorization')
+
 # Accounts
 LOGIN_URL = 'shop:login'
 LOGIN_REDIRECT_URL = 'shop:home'

@@ -42,6 +42,7 @@ urlpatterns = [
     path('sitemap.xml', sitemap, {'sitemaps': {'pages': StaticViewSitemap, 'products': ProductSitemap, 'info': PageSitemap}},
          name='sitemap'),
     path('robots.txt', robots_txt),
+    path('api/v1/', include('shop.api_urls')),
     path('', include('shop.urls')),
 ]
 

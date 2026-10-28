@@ -46,6 +46,7 @@ class Product(models.Model):
         help_text="Discount percentage, e.g. 10 for 10%",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     # Specifications (all optional, shown on the detail page)
     ram = models.CharField("RAM", max_length=50, blank=True)
@@ -368,7 +369,10 @@ class Banner(models.Model):
     """Offer banner shown at the top of the home page."""
     title = models.CharField(max_length=120)
     subtitle = models.CharField(max_length=200, blank=True)
-    image = models.ImageField(upload_to='banners/', blank=True, null=True)
+    image = models.ImageField(
+        upload_to='banners/', blank=True, null=True,
+        help_text="Wide image, about 1600 x 500 pixels. If you add an image it is shown as it is, so put "
+                  "your text inside the image. Without an image, the title and subtitle are shown on a coloured banner.")
     link = models.CharField(max_length=300, blank=True, help_text="Where the banner goes, e.g. /products/?category=1")
     sort_order = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
@@ -407,3 +411,13 @@ class ThrottleEntry(models.Model):
 
     def __str__(self):
         return f"{self.key}: {self.count}"
+
+
+class SyncState(models.Model):
+    """Remembers when each outside system (e.g. the aijobab assistant) last received our catalogue."""
+    name = models.CharField(max_length=40, unique=True)
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+    last_result = models.CharField(max_length=300, blank=True)
+
+    def __str__(self):
+        return f"{self.name}: {self.last_result or 'never synced'}"

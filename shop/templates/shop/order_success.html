@@ -1,4 +1,5 @@
 {% extends 'shop/base.html' %}
+{% load shop_extras %}
 
 {% block title %}Order Placed - TechMobi{% endblock %}
 
@@ -12,10 +13,10 @@
     </p>
     <div class="card d-inline-block text-start border-0 shadow-sm p-4 mt-2">
         <p class="mb-1">Order number: <strong>{{ order.order_number }}</strong></p>
-        <p class="mb-1">Subtotal: Tk {{ order.subtotal }}</p>
-        {% if order.discount_amount %}<p class="mb-1 text-success">Discount ({{ order.coupon_code }}): - Tk {{ order.discount_amount }}</p>{% endif %}
-        <p class="mb-1">Delivery ({{ order.get_delivery_area_display }}): Tk {{ order.delivery_charge }}</p>
-        <p class="mb-1 fs-5">Total: <span class="price-tag">Tk {{ order.total_price }}</span></p>
+        <p class="mb-1">Subtotal: Tk {{ order.subtotal|taka }}</p>
+        {% if order.discount_amount %}<p class="mb-1 text-success">Discount ({{ order.coupon_code }}): - Tk {{ order.discount_amount|taka }}</p>{% endif %}
+        <p class="mb-1">Delivery ({{ order.get_delivery_area_display }}): Tk {{ order.delivery_charge|taka }}</p>
+        <p class="mb-1 fs-5">Total: <span class="price-tag">Tk {{ order.total_price|taka }}</span></p>
         <p class="mb-0 text-muted small">Payment: {{ order.get_payment_method_display }}</p>
     </div>
     <p class="text-muted small mt-3">Save your order number. You can track the order with your phone number

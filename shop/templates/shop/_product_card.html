@@ -1,0 +1,46 @@
+{% load shop_extras %}
+<div class="card product-card h-100">
+    <div class="product-media">
+        <a href="{% url 'shop:product_detail' product.pk %}" tabindex="-1" aria-hidden="true">
+            {% if product.image %}
+            <img src="{{ product.image.url }}" alt="{{ product.name }}" loading="lazy">
+            {% else %}
+            <div class="product-placeholder"><i class="bi bi-phone"></i></div>
+            {% endif %}
+        </a>
+        {% if product.discount_percent %}<span class="badge badge-discount product-badge">-{{ product.discount_percent }}%</span>{% endif %}
+        {% if product.condition != 'new' %}<span class="badge bg-warning text-dark product-badge product-badge-2">{{ product.get_condition_display }}</span>{% endif %}
+        <form method="post" action="{% url 'shop:wishlist_toggle' product.pk %}" class="wish-form">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button type="submit" class="wish-btn {% if product.pk in wishlist_ids %}active{% endif %}" aria-label="Save to wishlist">
+                <i class="bi bi-heart{% if product.pk in wishlist_ids %}-fill{% endif %}"></i>
+            </button>
+        </form>
+    </div>
+    <div class="card-body d-flex flex-column">
+        {% if product.category %}<div class="product-cat">{{ product.category.name }}</div>{% endif %}
+        <h6 class="product-title"><a href="{% url 'shop:product_detail' product.pk %}">{{ product.name }}</a></h6>
+        {% if product.ram or product.storage %}
+        <div class="product-specs">{% if product.ram %}{{ product.ram }}{% endif %}{% if product.ram and product.storage %} &middot; {% endif %}{% if product.storage %}{{ product.storage }}{% endif %}</div>
+        {% endif %}
+        <div class="mt-auto pt-2">
+            <div class="mb-2">
+                <span class="price-tag">Tk {{ product.discounted_price|taka }}</span>
+                {% if product.discount_percent %}<span class="old-price ms-1">Tk {{ product.price|taka }}</span>{% endif %}
+            </div>
+            {% if product.in_stock %}
+            {% if product.quantity <= 5 %}<div class="stock-note low">Only {{ product.quantity }} left</div>{% else %}<div class="stock-note ok"><i class="bi bi-check-circle-fill"></i> In stock</div>{% endif %}
+            {% else %}
+            <div class="stock-note out">Out of stock</div>
+            {% endif %}
+            <form method="post" action="{% url 'shop:add_to_cart' product.pk %}" class="mt-2">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" class="btn btn-techmobi btn-sm w-100" {% if not product.in_stock %}disabled{% endif %}>
+                    <i class="bi bi-cart-plus"></i> Add to Cart
+                </button>
+            </form>
+        </div>
+    </div>
+</div>

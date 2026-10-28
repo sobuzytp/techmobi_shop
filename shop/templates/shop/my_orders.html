@@ -1,4 +1,5 @@
 {% extends 'shop/base.html' %}
+{% load shop_extras %}
 
 {% block title %}My Orders - TechMobi{% endblock %}
 
@@ -18,7 +19,7 @@
                     <td class="fw-semibold">{{ order.order_number }}</td>
                     <td>{{ order.order_date|date:"d M Y" }}</td>
                     <td>{{ order.items.all|length }}</td>
-                    <td>Tk {{ order.total_price }}</td>
+                    <td>Tk {{ order.total_price|taka }}</td>
                     <td><span class="badge bg-{% if order.status == 'delivered' %}success{% elif order.status == 'cancelled' %}danger{% else %}warning text-dark{% endif %}">{{ order.get_status_display }}</span></td>
                     <td><a class="btn btn-sm btn-outline-techmobi" href="{% url 'shop:my_order_detail' order.order_number %}">View</a></td>
                 </tr>

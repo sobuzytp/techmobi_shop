@@ -117,6 +117,10 @@ def _quote(request, subtotal, area='inside'):
         'delivery_charge': delivery,
         'total': after_discount + delivery,
         'below_minimum': bool(shop.min_order_amount) and after_discount < shop.min_order_amount,
+        'free_delivery_remaining': max(shop.free_delivery_threshold - after_discount, Decimal('0')),
+        'free_delivery_percent': (
+            min(int(after_discount * 100 / shop.free_delivery_threshold), 100)
+            if shop.free_delivery_threshold else 0),
     }
 
 
@@ -124,12 +128,20 @@ def _quote(request, subtotal, area='inside'):
 
 def home(request):
     categories = Category.objects.all()
-    featured_products = list(Product.objects.filter(is_featured=True)[:8])
+    in_stock = Product.objects.select_related('category').filter(quantity__gt=0)
+    featured_products = list(in_stock.filter(is_featured=True)[:8])
     if not featured_products:
-        featured_products = list(Product.objects.all()[:8])
+        featured_products = list(in_stock[:8])
+    shown = {p.pk for p in featured_products}
+    deal_products = [p for p in in_stock.filter(discount_percent__gt=0).order_by('-discount_percent')[:8]
+                     if p.pk not in shown][:4]
+    shown |= {p.pk for p in deal_products}
+    new_products = [p for p in in_stock.order_by('-created_at')[:12] if p.pk not in shown][:4]
     return render(request, 'shop/home.html', {
         'categories': categories,
         'featured_products': featured_products,
+        'deal_products': deal_products,
+        'new_products': new_products,
         'banners': Banner.objects.filter(is_active=True),
     })
 
