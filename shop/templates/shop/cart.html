@@ -1,4 +1,5 @@
 {% extends 'shop/base.html' %}
+{% load shop_extras %}
 
 {% block title %}Your Cart - TechMobi{% endblock %}
 
@@ -40,7 +41,7 @@
                             </div>
                         </div>
                     </td>
-                    <td>Tk {{ item.unit_price }}</td>
+                    <td>Tk {{ item.unit_price|taka }}</td>
                     <td>
                         <div class="d-flex align-items-center gap-2">
                             <form method="post" action="{% url 'shop:update_cart' item.product.pk %}">
@@ -56,7 +57,7 @@
                             </form>
                         </div>
                     </td>
-                    <td class="cart-line-total fw-semibold">Tk {{ item.line_total }}</td>
+                    <td class="cart-line-total fw-semibold">Tk {{ item.line_total|taka }}</td>
                     <td>
                         <form method="post" action="{% url 'shop:update_cart' item.product.pk %}">
                             {% csrf_token %}
@@ -91,11 +92,19 @@
                 </form>
                 {% endif %}
 
-                <div class="d-flex justify-content-between"><span>Subtotal</span><span id="cart-grand-total">Tk {{ subtotal }}</span></div>
+                <div class="d-flex justify-content-between"><span>Subtotal</span><span id="cart-grand-total">Tk {{ subtotal|taka }}</span></div>
                 {% if quote.discount %}
-                <div class="d-flex justify-content-between text-success"><span>Discount</span><span>- Tk {{ quote.discount }}</span></div>
+                <div class="d-flex justify-content-between text-success"><span>Discount</span><span>- Tk {{ quote.discount|taka }}</span></div>
                 {% endif %}
-                <p class="text-muted small mb-2 mt-1">Delivery charge is added at checkout{% if quote.shop.free_delivery_threshold %} (free over Tk {{ quote.shop.free_delivery_threshold|floatformat:0 }}){% endif %}.</p>
+                {% if quote.shop.free_delivery_threshold %}
+                {% if quote.free_delivery_remaining > 0 %}
+                <div class="mt-2 small">Add <strong>Tk {{ quote.free_delivery_remaining|taka }}</strong> more for free delivery</div>
+                <div class="progress mt-1" style="height: 6px;"><div class="progress-bar bg-success" style="width: {{ quote.free_delivery_percent }}%;"></div></div>
+                {% else %}
+                <div class="mt-2 small text-success"><i class="bi bi-check-circle-fill"></i> You get free delivery!</div>
+                {% endif %}
+                {% endif %}
+                <p class="text-muted small mb-2 mt-2">Delivery charge is added at checkout{% if quote.shop.free_delivery_threshold %} (free over Tk {{ quote.shop.free_delivery_threshold|floatformat:0 }}){% endif %}.</p>
 
                 {% if quote.below_minimum %}
                 <div class="alert alert-warning py-2 small">Minimum order is Tk {{ quote.shop.min_order_amount|floatformat:0 }}. Please add more items.</div>

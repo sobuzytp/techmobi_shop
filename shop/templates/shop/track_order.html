@@ -1,4 +1,5 @@
 {% extends 'shop/base.html' %}
+{% load shop_extras %}
 
 {% block title %}Track Order - TechMobi{% endblock %}
 
@@ -38,14 +39,14 @@
             {% for item in order.items.all %}
             <li class="list-group-item d-flex justify-content-between px-0">
                 <span>{{ item.product_name }} &times; {{ item.quantity }}</span>
-                <span>Tk {{ item.line_total }}</span>
+                <span>Tk {{ item.line_total|taka }}</span>
             </li>
             {% endfor %}
         </ul>
-        <div class="d-flex justify-content-between"><span>Subtotal</span><span>Tk {{ order.subtotal }}</span></div>
-        {% if order.discount_amount %}<div class="d-flex justify-content-between text-success"><span>Discount ({{ order.coupon_code }})</span><span>- Tk {{ order.discount_amount }}</span></div>{% endif %}
-        <div class="d-flex justify-content-between"><span>Delivery</span><span>Tk {{ order.delivery_charge }}</span></div>
-        <div class="d-flex justify-content-between fw-bold"><span>Total</span><span>Tk {{ order.total_price }}</span></div>
+        <div class="d-flex justify-content-between"><span>Subtotal</span><span>Tk {{ order.subtotal|taka }}</span></div>
+        {% if order.discount_amount %}<div class="d-flex justify-content-between text-success"><span>Discount ({{ order.coupon_code }})</span><span>- Tk {{ order.discount_amount|taka }}</span></div>{% endif %}
+        <div class="d-flex justify-content-between"><span>Delivery</span><span>Tk {{ order.delivery_charge|taka }}</span></div>
+        <div class="d-flex justify-content-between fw-bold"><span>Total</span><span>Tk {{ order.total_price|taka }}</span></div>
     </div>
     {% endif %}
 </div>

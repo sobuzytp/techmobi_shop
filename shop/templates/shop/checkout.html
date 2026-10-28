@@ -1,4 +1,5 @@
 {% extends 'shop/base.html' %}
+{% load shop_extras %}
 
 {% block title %}Checkout - TechMobi{% endblock %}
 
@@ -41,7 +42,7 @@
                             {{ radio.tag }}
                             <label class="form-check-label" for="{{ radio.id_for_label }}">
                                 {{ radio.choice_label }}
-                                (Tk <span class="area-charge" data-area="{{ radio.data.value }}">{% if radio.data.value == 'inside' %}{{ delivery_charges.inside }}{% else %}{{ delivery_charges.outside }}{% endif %}</span>{% if free_threshold %}, free over Tk {{ free_threshold|floatformat:0 }}{% endif %})
+                                (Tk <span class="area-charge" data-area="{{ radio.data.value }}">{% if radio.data.value == 'inside' %}{{ delivery_charges.inside|taka }}{% else %}{{ delivery_charges.outside|taka }}{% endif %}</span>{% if free_threshold %}, free over Tk {{ free_threshold|floatformat:0 }}{% endif %})
                             </label>
                         </div>
                         {% endfor %}
@@ -83,28 +84,28 @@
                     {% for item in items %}
                     <li class="list-group-item d-flex justify-content-between px-0">
                         <span>{{ item.product.name }} &times; {{ item.quantity }}</span>
-                        <span>Tk {{ item.line_total }}</span>
+                        <span>Tk {{ item.line_total|taka }}</span>
                     </li>
                     {% endfor %}
                 </ul>
                 <div class="d-flex justify-content-between">
                     <span>Subtotal</span>
-                    <span>Tk {{ subtotal }}</span>
+                    <span>Tk {{ subtotal|taka }}</span>
                 </div>
                 {% if discount %}
                 <div class="d-flex justify-content-between text-success">
                     <span>Discount ({{ coupon.code }})</span>
-                    <span>- Tk {{ discount }}</span>
+                    <span>- Tk {{ discount|taka }}</span>
                 </div>
                 {% endif %}
                 <div class="d-flex justify-content-between">
                     <span>Delivery</span>
-                    <span>Tk <span id="delivery-charge">{{ delivery_charge }}</span></span>
+                    <span>Tk <span id="delivery-charge">{{ delivery_charge|taka }}</span></span>
                 </div>
                 <hr>
                 <div class="d-flex justify-content-between fw-bold fs-5">
                     <span>Total</span>
-                    <span class="price-tag">Tk <span id="order-total">{{ grand_total }}</span></span>
+                    <span class="price-tag">Tk <span id="order-total">{{ grand_total|taka }}</span></span>
                 </div>
             </div>
         </div>
@@ -123,8 +124,8 @@
             radio.addEventListener('change', function () {
                 if (!radio.checked) return;
                 var charge = (freeFrom > 0 && afterDiscount >= freeFrom) ? 0 : charges[radio.value];
-                document.getElementById('delivery-charge').textContent = charge.toFixed(2);
-                document.getElementById('order-total').textContent = (afterDiscount + charge).toFixed(2);
+                document.getElementById('delivery-charge').textContent = window.formatTaka(charge);
+                document.getElementById('order-total').textContent = window.formatTaka(afterDiscount + charge);
             });
         });
     })();

@@ -368,7 +368,10 @@ class Banner(models.Model):
     """Offer banner shown at the top of the home page."""
     title = models.CharField(max_length=120)
     subtitle = models.CharField(max_length=200, blank=True)
-    image = models.ImageField(upload_to='banners/', blank=True, null=True)
+    image = models.ImageField(
+        upload_to='banners/', blank=True, null=True,
+        help_text="Wide image, about 1600 x 500 pixels. If you add an image it is shown as it is, so put "
+                  "your text inside the image. Without an image, the title and subtitle are shown on a coloured banner.")
     link = models.CharField(max_length=300, blank=True, help_text="Where the banner goes, e.g. /products/?category=1")
     sort_order = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)

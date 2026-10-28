@@ -1,11 +1,12 @@
 {% extends 'shop/base.html' %}
+{% load shop_extras %}
 
 {% block title %}{{ product.name }} - TechMobi{% endblock %}
 
 {% block meta %}
 <meta name="description" content="{{ product.description|default:product.name|truncatechars:155 }}">
 <meta property="og:type" content="product">
-<meta property="og:title" content="{{ product.name }} - Tk {{ product.discounted_price }}">
+<meta property="og:title" content="{{ product.name }} - Tk {{ product.discounted_price|taka }}">
 <meta property="og:description" content="{{ product.description|default:product.name|truncatechars:155 }}">
 {% if product.image %}<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ product.image.url }}">{% endif %}
 {% endblock %}
@@ -57,9 +58,9 @@
             {% endif %}
 
             <div class="my-3">
-                <span class="fs-3 price-tag">Tk {{ product.discounted_price }}</span>
+                <span class="fs-3 price-tag">Tk {{ product.discounted_price|taka }}</span>
                 {% if product.discount_percent %}
-                <span class="old-price fs-5 ms-2">Tk {{ product.price }}</span>
+                <span class="old-price fs-5 ms-2">Tk {{ product.price|taka }}</span>
                 <span class="badge badge-discount ms-2">-{{ product.discount_percent }}% OFF</span>
                 {% endif %}
             </div>
@@ -155,53 +156,36 @@
 
     {% if related_products %}
     <h4 class="fw-bold mt-5 mb-3">Related Products</h4>
-    <div class="row g-4">
-        {% for rp in related_products %}
-        <div class="col-6 col-md-3">
-            <a href="{% url 'shop:product_detail' rp.pk %}" class="text-decoration-none">
-                <div class="card product-card h-100">
-                    {% if rp.image %}
-                    <img src="{{ rp.image.url }}" class="card-img-top" alt="{{ rp.name }}">
-                    {% else %}
-                    <div class="card-img-top d-flex align-items-center justify-content-center">
-                        <i class="bi bi-phone" style="font-size: 3rem; color: #ccc;"></i>
-                    </div>
-                    {% endif %}
-                    <div class="card-body">
-                        <h6 class="card-title fw-semibold text-dark">{{ rp.name }}</h6>
-                        <span class="price-tag">Tk {{ rp.discounted_price }}</span>
-                    </div>
-                </div>
-            </a>
-        </div>
+    <div class="row g-3 g-md-4">
+        {% for product in related_products %}
+        <div class="col-6 col-md-3">{% include 'shop/_product_card.html' %}</div>
         {% endfor %}
     </div>
     {% endif %}
 
     {% if recent_products %}
     <h4 class="fw-bold mt-5 mb-3">Recently Viewed</h4>
-    <div class="row g-4">
-        {% for rp in recent_products %}
-        <div class="col-6 col-md-3">
-            <a href="{% url 'shop:product_detail' rp.pk %}" class="text-decoration-none">
-                <div class="card product-card h-100">
-                    {% if rp.image %}
-                    <img src="{{ rp.image.url }}" class="card-img-top" alt="{{ rp.name }}">
-                    {% else %}
-                    <div class="card-img-top d-flex align-items-center justify-content-center">
-                        <i class="bi bi-phone" style="font-size: 3rem; color: #ccc;"></i>
-                    </div>
-                    {% endif %}
-                    <div class="card-body">
-                        <h6 class="card-title fw-semibold text-dark">{{ rp.name }}</h6>
-                        <span class="price-tag">Tk {{ rp.discounted_price }}</span>
-                    </div>
-                </div>
-            </a>
-        </div>
+    <div class="row g-3 g-md-4">
+        {% for product in recent_products %}
+        <div class="col-6 col-md-3">{% include 'shop/_product_card.html' %}</div>
         {% endfor %}
     </div>
     {% endif %}
+</div>
+
+<div class="d-md-none" style="height: 84px;"></div>
+<!-- Sticky buy bar on phones -->
+<div class="mobile-buybar d-md-none">
+    <div>
+        <div class="price-tag">Tk {{ product.discounted_price|taka }}</div>
+        {% if product.discount_percent %}<div class="old-price small">Tk {{ product.price|taka }}</div>{% endif %}
+    </div>
+    <form method="post" action="{% url 'shop:add_to_cart' product.pk %}" class="d-flex gap-2">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{% url 'shop:product_detail' product.pk %}">
+        <button type="submit" class="btn btn-outline-techmobi" {% if not product.in_stock %}disabled{% endif %}><i class="bi bi-cart-plus"></i></button>
+        <button type="submit" name="buy_now" value="1" class="btn btn-techmobi" {% if not product.in_stock %}disabled{% endif %}>Buy Now</button>
+    </form>
 </div>
 {% endblock %}
 

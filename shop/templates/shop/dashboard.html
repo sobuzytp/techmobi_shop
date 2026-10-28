@@ -1,4 +1,5 @@
 {% extends 'shop/base.html' %}
+{% load shop_extras %}
 
 {% block title %}Sales Dashboard - TechMobi{% endblock %}
 
@@ -57,7 +58,7 @@
                             <tr>
                                 <td><a href="{% url 'admin:shop_order_change' o.pk %}">{{ o.order_number }}</a></td>
                                 <td>{{ o.customer.name }}<br><span class="small text-muted">{{ o.customer.phone }}</span></td>
-                                <td>Tk {{ o.total_price }}</td>
+                                <td>Tk {{ o.total_price|taka }}</td>
                                 <td>{{ o.get_status_display }}{% if o.status == 'pending' and not o.call_confirmed %} <span class="badge bg-danger">call</span>{% endif %}</td>
                                 <td><a href="{% url 'shop:invoice' o.order_number %}" target="_blank">Invoice</a></td>
                             </tr>

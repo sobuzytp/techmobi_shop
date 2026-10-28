@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% load shop_extras %}<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -45,16 +45,16 @@
         <thead><tr><th>Item</th><th>Warranty</th><th class="num">Price</th><th class="num">Qty</th><th class="num">Total</th></tr></thead>
         <tbody>
             {% for item in order.items.all %}
-            <tr><td>{{ item.product_name }}{% if item.imei %}<br><span class="muted">IMEI/Serial: {{ item.imei }}</span>{% endif %}</td><td>{{ item.warranty_label|default:"-" }}</td><td class="num">Tk {{ item.unit_price }}</td><td class="num">{{ item.quantity }}</td><td class="num">Tk {{ item.line_total }}</td></tr>
+            <tr><td>{{ item.product_name }}{% if item.imei %}<br><span class="muted">IMEI/Serial: {{ item.imei }}</span>{% endif %}</td><td>{{ item.warranty_label|default:"-" }}</td><td class="num">Tk {{ item.unit_price|taka }}</td><td class="num">{{ item.quantity }}</td><td class="num">Tk {{ item.line_total|taka }}</td></tr>
             {% endfor %}
         </tbody>
     </table>
 
     <div class="totals">
-        <div><span>Subtotal</span><span>Tk {{ order.subtotal }}</span></div>
-        {% if order.discount_amount %}<div><span>Discount ({{ order.coupon_code }})</span><span>- Tk {{ order.discount_amount }}</span></div>{% endif %}
-        <div><span>Delivery</span><span>Tk {{ order.delivery_charge }}</span></div>
-        <div class="grand"><span>Total to pay</span><span>Tk {{ order.total_price }}</span></div>
+        <div><span>Subtotal</span><span>Tk {{ order.subtotal|taka }}</span></div>
+        {% if order.discount_amount %}<div><span>Discount ({{ order.coupon_code }})</span><span>- Tk {{ order.discount_amount|taka }}</span></div>{% endif %}
+        <div><span>Delivery</span><span>Tk {{ order.delivery_charge|taka }}</span></div>
+        <div class="grand"><span>Total to pay</span><span>Tk {{ order.total_price|taka }}</span></div>
     </div>
     <p class="muted">Payment: {{ order.get_payment_method_display }}. Please pay the delivery person when you receive the order.</p>
     <p class="muted">Warranty starts from the delivery date and is valid only with this invoice and a matching IMEI/serial number. Please keep this invoice.</p>

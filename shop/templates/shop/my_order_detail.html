@@ -1,4 +1,5 @@
 {% extends 'shop/base.html' %}
+{% load shop_extras %}
 
 {% block title %}Order {{ order.order_number }} - TechMobi{% endblock %}
 
@@ -19,14 +20,14 @@
                 <span>{{ item.product_name }} &times; {{ item.quantity }}
                     {% if item.warranty_label %}<br><span class="small text-muted">Warranty: {{ item.warranty_label }}</span>{% endif %}
                     {% if item.imei %}<br><span class="small text-muted">IMEI/Serial: {{ item.imei }}</span>{% endif %}</span>
-                <span>Tk {{ item.line_total }}</span>
+                <span>Tk {{ item.line_total|taka }}</span>
             </li>
             {% endfor %}
         </ul>
-        <div class="d-flex justify-content-between"><span>Subtotal</span><span>Tk {{ order.subtotal }}</span></div>
-        {% if order.discount_amount %}<div class="d-flex justify-content-between text-success"><span>Discount ({{ order.coupon_code }})</span><span>- Tk {{ order.discount_amount }}</span></div>{% endif %}
-        <div class="d-flex justify-content-between"><span>Delivery</span><span>Tk {{ order.delivery_charge }}</span></div>
-        <div class="d-flex justify-content-between fw-bold"><span>Total</span><span>Tk {{ order.total_price }}</span></div>
+        <div class="d-flex justify-content-between"><span>Subtotal</span><span>Tk {{ order.subtotal|taka }}</span></div>
+        {% if order.discount_amount %}<div class="d-flex justify-content-between text-success"><span>Discount ({{ order.coupon_code }})</span><span>- Tk {{ order.discount_amount|taka }}</span></div>{% endif %}
+        <div class="d-flex justify-content-between"><span>Delivery</span><span>Tk {{ order.delivery_charge|taka }}</span></div>
+        <div class="d-flex justify-content-between fw-bold"><span>Total</span><span>Tk {{ order.total_price|taka }}</span></div>
         <p class="text-muted small mt-3 mb-0">Payment: {{ order.get_payment_method_display }}</p>
         {% if order.can_customer_cancel %}
         <form method="post" action="{% url 'shop:cancel_my_order' order.order_number %}" class="mt-3"

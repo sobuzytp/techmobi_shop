@@ -948,3 +948,74 @@ class ClientIpTests(TestCase):
     def test_dashboard_shows_visitor_ip(self):
         self.client.force_login(make_user('01700000555', staff=True))
         self.assertContains(self.client.get(reverse('shop:dashboard')), '127.0.0.1')
+
+
+# ---------------------------------------------------------------------------
+# UI polish: money format, banners, footer, home sections, free-delivery hint
+# ---------------------------------------------------------------------------
+class UiTests(TestCase):
+    def test_taka_filter(self):
+        from .templatetags.shop_extras import taka, category_icon
+        self.assertEqual(taka(Decimal('5499.00')), '5,499')
+        self.assertEqual(taka(Decimal('3399.15')), '3,399.15')
+        self.assertEqual(taka(1234567), '12,34,567')
+        self.assertEqual(taka(0), '0')
+        self.assertEqual(taka(-1500), '-1,500')
+        self.assertEqual(taka('abc'), 'abc')
+        self.assertEqual(category_icon('Smartphones'), 'bi-phone')
+        self.assertEqual(category_icon('Chargers'), 'bi-lightning-charge')
+        self.assertEqual(category_icon('Something else'), 'bi-grid')
+
+    def test_banner_with_image_is_shown_whole_without_overlay_text(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from .models import Banner
+        import tempfile
+        with tempfile.TemporaryDirectory() as media, self.settings(MEDIA_ROOT=media):
+            png = (b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89'
+                   b'\x00\x00\x00\rIDATx\x9cc\xf8\xff\xff?\x00\x05\xfe\x02\xfe\xa7V\xbd\xfa\x00\x00\x00\x00IEND\xaeB`\x82')
+            Banner.objects.create(title='Image banner', image=SimpleUploadedFile('b.png', png, 'image/png'))
+            Banner.objects.create(title='Text banner', subtitle='Sub line')
+            html = self.client.get(reverse('shop:home')).content.decode()
+        self.assertIn('class="banner-img"', html)
+        self.assertIn('Text banner', html)
+        self.assertIn('Sub line', html)
+        self.assertEqual(html.count('class="banner-img"'), 1)
+
+    def test_footer_is_compact_with_three_link_groups(self):
+        html = self.client.get(reverse('shop:home')).content.decode()
+        footer = html[html.index('<footer'):]
+        self.assertNotIn('Quick Links', footer)
+        for heading in ('Shop', 'Information', 'Contact Us'):
+            self.assertIn(heading, footer)
+        self.assertIn('Cash on Delivery', footer)
+
+    def test_home_sections_skip_out_of_stock_and_do_not_repeat_products(self):
+        in_stock = [make_product(f'P{i}', '1000', 5, is_featured=(i < 2), discount_percent=10 if i in (2, 3) else 0)
+                    for i in range(6)]
+        make_product('Gone', '1000', 0, is_featured=True)
+        resp = self.client.get(reverse('shop:home'))
+        shown = [p.pk for key in ('featured_products', 'deal_products', 'new_products') for p in resp.context[key]]
+        self.assertEqual(len(shown), len(set(shown)))
+        self.assertNotIn('Gone', [p.name for key in ('featured_products', 'deal_products', 'new_products')
+                                  for p in resp.context[key]])
+        self.assertTrue(set(shown) <= {p.pk for p in in_stock})
+
+    def test_cart_shows_free_delivery_progress(self):
+        shop = ShopSettings.load()
+        shop.free_delivery_threshold = 5000
+        shop.save()
+        product = make_product('Phone', '1000', 5)
+        self.client.post(reverse('shop:add_to_cart', args=[product.pk]))
+        cart = self.client.get(reverse('shop:cart'))
+        self.assertContains(cart, 'more for free delivery')
+        self.assertEqual(cart.context['quote']['free_delivery_percent'], 20)
+        self.assertEqual(cart.context['quote']['free_delivery_remaining'], Decimal('4000'))
+
+    def test_wishlist_hearts_on_cards(self):
+        user = make_user()
+        product = make_product('Phone', '1000', 5)
+        self.client.force_login(user)
+        Wishlist.objects.create(user=user, product=product)
+        resp = self.client.get(reverse('shop:product_list'))
+        self.assertIn(product.pk, resp.context['wishlist_ids'])
+        self.assertContains(resp, 'bi-heart-fill')
