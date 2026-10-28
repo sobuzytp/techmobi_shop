@@ -46,6 +46,7 @@ class Product(models.Model):
         help_text="Discount percentage, e.g. 10 for 10%",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     # Specifications (all optional, shown on the detail page)
     ram = models.CharField("RAM", max_length=50, blank=True)
@@ -410,3 +411,13 @@ class ThrottleEntry(models.Model):
 
     def __str__(self):
         return f"{self.key}: {self.count}"
+
+
+class SyncState(models.Model):
+    """Remembers when each outside system (e.g. the aijobab assistant) last received our catalogue."""
+    name = models.CharField(max_length=40, unique=True)
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+    last_result = models.CharField(max_length=300, blank=True)
+
+    def __str__(self):
+        return f"{self.name}: {self.last_result or 'never synced'}"

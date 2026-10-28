@@ -1,3 +1,4 @@
+import json
 from decimal import Decimal
 
 from django.test import TestCase, override_settings
@@ -1019,3 +1020,48 @@ class UiTests(TestCase):
         resp = self.client.get(reverse('shop:product_list'))
         self.assertIn(product.pk, resp.context['wishlist_ids'])
         self.assertContains(resp, 'bi-heart-fill')
+
+
+class ApiTests(TestCase):
+    def setUp(self):
+        cat = Category.objects.create(name='Phones')
+        self.p = Product.objects.create(name='Galaxy A15', brand='Samsung', price=Decimal('20000'),
+                                        discount_percent=10, quantity=3, category=cat, ram='6GB')
+        Product.objects.create(name='Old Nokia', brand='Nokia', price=Decimal('2000'), quantity=0, category=cat)
+
+    def test_list_and_filters(self):
+        data = self.client.get('/api/v1/products/').json()
+        self.assertEqual(data['count'], 2)
+        first = data['results'][0]
+        self.assertEqual(first['final_price'], '18000.00')
+        self.assertEqual(first['specs']['ram'], '6GB')
+        self.assertTrue(first['url'].startswith('http'))
+        self.assertEqual(self.client.get('/api/v1/products/?in_stock=1').json()['count'], 1)
+        self.assertEqual(self.client.get('/api/v1/products/?q=nokia').json()['count'], 1)
+        self.assertEqual(self.client.get('/api/v1/products/?page=abc').status_code, 400)
+
+    def test_detail_404_and_other_endpoints(self):
+        self.assertEqual(self.client.get(f'/api/v1/products/{self.p.pk}/').json()['name'], 'Galaxy A15')
+        self.assertEqual(self.client.get('/api/v1/products/9999/').status_code, 404)
+        self.assertEqual(self.client.get('/api/v1/categories/').json()['results'][0]['name'], 'Phones')
+        self.assertEqual(self.client.get('/api/v1/shop/').json()['payment_methods'], ['Cash on Delivery'])
+        self.assertIn('results', self.client.get('/api/v1/pages/').json())
+
+    def test_read_only(self):
+        self.assertEqual(self.client.post('/api/v1/products/').status_code, 405)
+
+    def test_csv_feed_neutralises_formulas(self):
+        Product.objects.create(name='=HYPERLINK("x")', price=Decimal('1'), quantity=1)
+        text = self.client.get('/api/v1/feed.csv').content.decode()
+        self.assertIn('Galaxy A15', text)
+        self.assertIn("'=HYPERLINK", text)
+
+    def test_sync_dry_run_and_missing_config(self):
+        from io import StringIO
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+        out, err = StringIO(), StringIO()
+        call_command('sync_catalog', '--dry-run', stdout=out, stderr=err)
+        self.assertEqual(len(json.loads(out.getvalue())['products']), 2)
+        with self.assertRaises(CommandError):
+            call_command('sync_catalog', stdout=StringIO())

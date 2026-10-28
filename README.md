@@ -179,3 +179,27 @@ python manage.py test
 - `db.sqlite3` and `media/` are excluded from version control via `.gitignore` — run the
   migration (and optionally the seed) commands after cloning to set up your own local database.
 - This project is built for educational purposes as part of a Django practice assignment.
+
+## REST API and aijobab sync
+
+Public, read-only JSON API (no customer data, no writes):
+
+| URL | What |
+|---|---|
+| `/api/v1/` | list of endpoints |
+| `/api/v1/products/` | products; `?q=`, `?category=`, `?brand=`, `?in_stock=1`, `?page=`, `?page_size=` (max 100) |
+| `/api/v1/products/<id>/` | one product |
+| `/api/v1/categories/`, `/api/v1/shop/`, `/api/v1/pages/` | categories, shop contact/delivery info, policy pages |
+| `/api/v1/feed.csv` | all products as CSV (e.g. for an Excel price-list import) |
+
+Sending the catalogue to aijobab (set these in cPanel > Setup Python App, never commit them):
+
+    AIJOBAB_SYNC_URL=https://...      # endpoint from your aijobab dashboard/docs
+    AIJOBAB_API_KEY=...               # your key
+    AIJOBAB_AUTH_HEADER=Authorization # or X-API-Key, if aijobab asks for that
+
+    python manage.py sync_catalog --dry-run   # show what would be sent
+    python manage.py sync_catalog             # send it (add to cron to keep it fresh)
+
+The payload is `{"source", "shop", "products": [...]}`; adjust `build_payload` in
+`shop/management/commands/sync_catalog.py` if aijobab expects a different shape.
