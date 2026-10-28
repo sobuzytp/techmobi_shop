@@ -1065,3 +1065,11 @@ class ApiTests(TestCase):
         self.assertEqual(len(json.loads(out.getvalue())['products']), 2)
         with self.assertRaises(CommandError):
             call_command('sync_catalog', stdout=StringIO())
+
+    def test_flat_products_json(self):
+        data = self.client.get('/api/v1/products.json').json()
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 2)
+        row = [r for r in data if r['name'] == 'Galaxy A15'][0]
+        self.assertEqual(row['price'], '18000.00')
+        self.assertEqual(row['stock_status'], 'instock')

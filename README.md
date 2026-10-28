@@ -190,6 +190,7 @@ Public, read-only JSON API (no customer data, no writes):
 | `/api/v1/products/` | products; `?q=`, `?category=`, `?brand=`, `?in_stock=1`, `?page=`, `?page_size=` (max 100) |
 | `/api/v1/products/<id>/` | one product |
 | `/api/v1/categories/`, `/api/v1/shop/`, `/api/v1/pages/` | categories, shop contact/delivery info, policy pages |
+| `/api/v1/products.json` | plain list of all products (paste this into aijobab > Products > Sync) |
 | `/api/v1/feed.csv` | all products as CSV (e.g. for an Excel price-list import) |
 
 Sending the catalogue to aijobab (set these in cPanel > Setup Python App, never commit them):

@@ -11,5 +11,6 @@ urlpatterns = [
     path('categories/', api.api_categories, name='categories'),
     path('shop/', api.api_shop, name='shop'),
     path('pages/', api.api_pages, name='pages'),
+    path('products.json', api.products_flat, name='products_flat'),
     path('feed.csv', api.product_feed, name='feed'),
 ]

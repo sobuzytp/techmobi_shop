@@ -162,3 +162,25 @@ def product_feed(request):
             d['url'], d['image'], d['description'].replace('\n', ' '),
         ]])
     return response
+
+
+@require_GET
+def products_flat(request):
+    """Plain JSON list with the usual field names, for importers that paste in a product API link."""
+    items = []
+    for p in filtered_products(request.GET):
+        d = serialize_product(p, request)
+        items.append({
+            'id': d['id'], 'sku': f"TM{d['id']}", 'name': d['name'], 'title': d['name'],
+            'brand': d['brand'], 'category': d['category'] or '',
+            'description': d['description'],
+            'price': d['final_price'], 'regular_price': d['price'], 'sale_price': d['final_price'],
+            'currency': 'BDT',
+            'stock': d['quantity'], 'stock_quantity': d['quantity'],
+            'stock_status': 'instock' if d['in_stock'] else 'outofstock',
+            'in_stock': d['in_stock'],
+            'image': d['image'], 'images': [d['image']] if d['image'] else [],
+            'url': d['url'], 'condition': d['condition'],
+            'warranty_months': d['warranty_months'], **d['specs'],
+        })
+    return JsonResponse(items, safe=False)
