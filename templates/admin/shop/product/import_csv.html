@@ -13,7 +13,8 @@
   </div>
   {% endif %}
   <form method="post" enctype="multipart/form-data">{% csrf_token %}
-    <p><input type="file" name="file" accept=".csv" required></p>
+    <p><label>Products CSV file: <input type="file" name="file" accept=".csv" required></label></p>
+    <p><label>Pictures ZIP (optional): <input type="file" name="images" accept=".zip"></label><br><small>Put the picture file names in the <b>image</b> column of the CSV.</small></p>
     <p><input type="submit" value="Import" class="default"></p>
   </form>
   <h3>Columns</h3>

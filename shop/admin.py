@@ -78,7 +78,11 @@ class ProductAdmin(admin.ModelAdmin):
             return response
         result = None
         if request.method == 'POST' and request.FILES.get('file'):
-            created, updated, errors = importer.import_products(request.FILES['file'])
+            images, image_errors = ({}, [])
+            if request.FILES.get('images'):
+                images, image_errors = importer.read_images_zip(request.FILES['images'])
+            created, updated, errors = importer.import_products(request.FILES['file'], images)
+            errors = image_errors + errors
             result = {'created': created, 'updated': updated, 'errors': errors[:50], 'more': max(len(errors) - 50, 0)}
         context = {**self.admin_site.each_context(request), 'opts': self.model._meta, 'title': 'Import products from CSV',
                    'result': result, 'columns': importer.COLUMNS}
