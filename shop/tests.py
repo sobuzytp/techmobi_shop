@@ -1232,3 +1232,27 @@ class CardFallbackTests(TestCase):
         self.assertTrue(plain.short_description.startswith('A handy gadget'))
         html = self.client.get('/products/').content.decode()
         self.assertIn('A handy gadget', html)
+
+
+class ImportImagesTests(TestCase):
+    def test_zip_pictures_are_attached(self):
+        import io, tempfile, zipfile
+        from django.contrib.auth import get_user_model
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from .placeholders import make_placeholder
+        get_user_model().objects.create_superuser('boss2', password='pw-123456-x')
+        self.client.login(username='boss2', password='pw-123456-x')
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, 'w') as z:
+            z.writestr('pics/a.png', make_placeholder('A', 'B', 'Laptops'))
+            z.writestr('evil.png', b'not an image')
+        csv_text = "name,price,image\nWith Pic,100,a.png\nNo Pic,100,missing.png\n"
+        with override_settings(MEDIA_ROOT=tempfile.mkdtemp()):
+            resp = self.client.post('/admin/shop/product/import-csv/', {
+                'file': SimpleUploadedFile('p.csv', csv_text.encode(), 'text/csv'),
+                'images': SimpleUploadedFile('i.zip', buf.getvalue(), 'application/zip')})
+            self.assertContains(resp, '2 added')
+            self.assertContains(resp, 'evil.png is not a valid image')
+            self.assertContains(resp, 'was not found in the pictures ZIP')
+            self.assertTrue(Product.objects.get(name='With Pic').image)
+            self.assertFalse(Product.objects.get(name='No Pic').image)

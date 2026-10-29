@@ -1,20 +1,28 @@
 """Bulk add or update products from a CSV file (save your Excel sheet as 'CSV UTF-8')."""
 import csv
 import io
+import os
+import zipfile
 from decimal import Decimal, InvalidOperation
 
+from django.core.files.base import ContentFile
 from django.db import transaction
+from PIL import Image
 
 from .models import Category, Product
 
 MAX_ROWS = 2000
 MAX_BYTES = 2 * 1024 * 1024
+MAX_ZIP_BYTES = 40 * 1024 * 1024
+MAX_IMAGE_BYTES = 5 * 1024 * 1024
+MAX_IMAGES = 400
+IMAGE_EXT = ('.png', '.jpg', '.jpeg', '.webp')
 
 COLUMNS = [
     'name', 'category', 'brand', 'price', 'discount_percent', 'quantity', 'condition', 'warranty_months',
     'sku', 'short_description', 'description', 'highlights', 'ram', 'storage', 'display', 'processor',
     'battery', 'charging', 'camera', 'os', 'network', 'sim', 'color', 'extra_specs', 'in_the_box', 'faq',
-    'ai_notes',
+    'ai_notes', 'image',
 ]
 MULTILINE = {'highlights', 'extra_specs', 'in_the_box', 'faq'}
 TEXT = ['brand', 'sku', 'short_description', 'description', 'ram', 'storage', 'display', 'processor', 'battery',
@@ -25,7 +33,7 @@ SAMPLE = [
      'Premium mid-range phone', 'Longer description here.', '120Hz AMOLED|50MP OIS camera|IP67', '8GB', '256GB',
      '6.6-inch Super AMOLED', 'Exynos 1480', '5000 mAh', '25W', '50MP + 12MP + 5MP', 'Android 14', '5G',
      'Dual SIM', 'Navy', 'Weight: 213 g|IP67 water resistant', 'Phone|USB cable|SIM tool',
-     'Q: Is it original?|A: Yes, with warranty.', 'Good for Samsung fans on a mid-range budget.'],
+     'Q: Is it original?|A: Yes, with warranty.', 'Good for Samsung fans on a mid-range budget.', 'samsung-a55.png'],
 ]
 
 
@@ -75,8 +83,42 @@ def sample_csv():
     return '﻿' + out.getvalue()
 
 
-def import_products(uploaded):
-    """Returns (created, updated, errors). Rows with a problem are skipped and reported."""
+def read_images_zip(uploaded):
+    """Read a ZIP of pictures into {lowercase file name: bytes}. Returns (images, errors)."""
+    images, errors = {}, []
+    raw = uploaded.read(MAX_ZIP_BYTES + 1)
+    if len(raw) > MAX_ZIP_BYTES:
+        return {}, ["The pictures ZIP is bigger than 40 MB."]
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(raw))
+    except zipfile.BadZipFile:
+        return {}, ["The pictures file is not a valid ZIP."]
+    for info in archive.infolist():
+        name = os.path.basename(info.filename)
+        if info.is_dir() or not name or name.startswith('.') or not name.lower().endswith(IMAGE_EXT):
+            continue
+        if len(images) >= MAX_IMAGES:
+            errors.append(f"Only the first {MAX_IMAGES} pictures were read.")
+            break
+        if info.file_size > MAX_IMAGE_BYTES:
+            errors.append(f"Picture {name} is bigger than 5 MB and was skipped.")
+            continue
+        data = archive.read(info)
+        try:
+            Image.open(io.BytesIO(data)).verify()
+        except Exception:
+            errors.append(f"Picture {name} is not a valid image and was skipped.")
+            continue
+        images[name.lower()] = data
+    return images, errors
+
+
+def import_products(uploaded, images=None):
+    """Returns (created, updated, errors). Rows with a problem are skipped and reported.
+
+    `images` is the {file name: bytes} dict from read_images_zip; a row's 'image' column names the file.
+    """
+    images = images or {}
     raw = uploaded.read(MAX_BYTES + 1)
     if len(raw) > MAX_BYTES:
         return 0, 0, ["The file is bigger than 2 MB."]
@@ -144,6 +186,12 @@ def import_products(uploaded):
                         setattr(product, field, _faq(row[field]) if field == 'faq' else _lines(row[field]))
                 product.full_clean(exclude=['image'])
                 product.save()
+                wanted = os.path.basename(row.get('image', '')).lower()
+                if wanted:
+                    if wanted in images:
+                        product.image.save(wanted, ContentFile(images[wanted]), save=True)
+                    else:
+                        errors.append(f"Row {number} ({name}): picture '{wanted}' was not found in the pictures ZIP (product saved without it).")
             created += is_new
             updated += not is_new
         except Exception as exc:   # one bad row must not stop the rest
