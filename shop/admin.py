@@ -2,12 +2,12 @@ import csv
 
 from django.contrib import admin, messages
 from django.http import HttpResponse
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
 
-from . import services
+from . import importer, services
 from .models import (
     Banner, BlockedPhone, Category, Coupon, Customer, Order, OrderItem, Page, Product, ProductImage,
     Review, ShopSettings, Wishlist,
@@ -48,17 +48,53 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = ('name', 'brand', 'description', 'sku')
     list_editable = ('price', 'quantity', 'is_featured', 'discount_percent')
     inlines = [ProductImageInline]
+    actions = ['duplicate_products']
+    change_list_template = 'admin/shop/product/change_list.html'
     fieldsets = (
-        ('Basics', {'fields': ('name', 'brand', 'sku', 'category', 'condition', 'warranty_months', 'price',
-                               'discount_percent', 'quantity', 'is_featured', 'image')}),
-        ('Description (customers and the AI both read this)', {'fields': (
-            'short_description', 'description', 'highlights')}),
-        ('Specifications', {'fields': (
+        ('Basics', {'fields': ('name', 'brand', 'category', 'price', 'discount_percent', 'quantity',
+                               'image', 'short_description', 'description', 'is_featured')}),
+        ('More details (open to fill: condition, warranty, SKU, highlights)', {'classes': ('collapse',), 'fields': (
+            'condition', 'warranty_months', 'sku', 'highlights')}),
+        ('Specifications', {'classes': ('collapse',), 'fields': (
             'processor', 'ram', 'storage', 'display', 'battery', 'charging', 'camera', 'os', 'network',
             'sim', 'color', 'extra_specs')}),
-        ('Box and questions', {'fields': ('in_the_box', 'faq')}),
-        ('For the AI assistant (not on the product page - no secrets or cost prices)', {'fields': ('ai_notes',)}),
+        ('Box and questions', {'classes': ('collapse',), 'fields': ('in_the_box', 'faq')}),
+        ('For the AI assistant (not on the product page - no secrets or cost prices)', {
+            'classes': ('collapse',), 'fields': ('ai_notes',)}),
     )
+
+    def get_urls(self):
+        from django.urls import path
+        custom = [path('import-csv/', self.admin_site.admin_view(self.import_csv_view), name='shop_product_import_csv')]
+        return custom + super().get_urls()
+
+    def import_csv_view(self, request):
+        if not self.has_add_permission(request):
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied
+        if request.GET.get('template'):
+            response = HttpResponse(importer.sample_csv(), content_type='text/csv; charset=utf-8')
+            response['Content-Disposition'] = 'attachment; filename="products-template.csv"'
+            return response
+        result = None
+        if request.method == 'POST' and request.FILES.get('file'):
+            created, updated, errors = importer.import_products(request.FILES['file'])
+            result = {'created': created, 'updated': updated, 'errors': errors[:50], 'more': max(len(errors) - 50, 0)}
+        context = {**self.admin_site.each_context(request), 'opts': self.model._meta, 'title': 'Import products from CSV',
+                   'result': result, 'columns': importer.COLUMNS}
+        return render(request, 'admin/shop/product/import_csv.html', context)
+
+    @admin.action(description='Duplicate selected products (copy appears with "(copy)")')
+    def duplicate_products(self, request, queryset):
+        count = 0
+        for product in queryset:
+            product.pk = None
+            product.name = f"{product.name} (copy)"[:200]
+            product.sku = ''
+            product.image = None
+            product.save()
+            count += 1
+        self.message_user(request, f"{count} product(s) duplicated. Edit the copies to change name, price and picture.")
 
     @admin.display(description='Details')
     def details_status(self, obj):

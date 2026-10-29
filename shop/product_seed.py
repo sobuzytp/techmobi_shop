@@ -13,6 +13,29 @@ COMMON_FAQ = (
 
 KNOWN = [
     {
+        'match': ['iphone 16 plus'],
+        'brand': 'Apple', 'processor': 'Apple A18', 'display': '6.7-inch Super Retina XDR OLED',
+        'os': 'iOS', 'battery': 'Up to 27 hours video playback',
+        'charging': 'USB-C, MagSafe and Qi2 wireless', 'camera': '48MP Fusion main + 12MP ultra-wide, 12MP front',
+        'network': '5G, Wi-Fi 7', 'sim': 'Dual SIM (nano-SIM + eSIM)',
+        'short_description': 'Big-screen iPhone 16 with the A18 chip, Camera Control and all-day battery.',
+        'highlights': "A18 chip\n6.7-inch Super Retina XDR display\n48MP Fusion camera with 2x telephoto-quality zoom\nCamera Control and Action button\nUp to 27 hours video playback\nUSB-C",
+        'extra_specs': "Storage options: 128GB, 256GB, 512GB\nCameras: Camera Control button for quick photos",
+        'in_the_box': "iPhone 16 Plus\nUSB-C charge cable\nDocumentation\n(Power adapter not included)",
+        'ai_notes': "For customers who want a large iPhone screen and long battery without paying for the Pro. Check which storage size is in stock.",
+    },
+    {
+        'match': ['xiaomi pad 6', 'mi pad 6'],
+        'brand': 'Xiaomi', 'processor': 'Snapdragon 870', 'display': '11-inch 2.8K IPS, 144Hz',
+        'os': 'Android with MIUI / HyperOS', 'battery': '8840 mAh', 'charging': '33W fast charging',
+        'camera': '13MP rear, 8MP front', 'network': 'Wi-Fi 6, Bluetooth 5.2',
+        'short_description': '11-inch 144Hz 2.8K tablet with Snapdragon 870 and quad speakers.',
+        'highlights': "11-inch 2.8K display at 144Hz\nSnapdragon 870 processor\nQuad speakers with Dolby Atmos\n8840 mAh battery with 33W charging\nSupports Xiaomi Smart Pen and keyboard (sold separately)",
+        'extra_specs': "Accessories: Xiaomi Smart Pen (2nd gen) and keyboard sold separately",
+        'in_the_box': "Xiaomi Pad 6\n33W charger\nUSB-C cable\nDocumentation",
+        'ai_notes': "Best for students, note-taking and streaming. Pen and keyboard are extra.",
+    },
+    {
         'match': ['iphone 18 pro max'],
         'brand': 'Apple', 'processor': 'Apple A20 Pro (6-core CPU, 7-core GPU)',
         'display': '6.9-inch Super Retina XDR OLED, 120Hz ProMotion', 'os': 'iOS',
@@ -96,10 +119,42 @@ def _category_box(product):
     return ''
 
 
+BRANDS = ['Apple', 'Samsung', 'Xiaomi', 'Redmi', 'Realme', 'Infinix', 'Tecno', 'Motorola', 'OnePlus',
+          'Oppo', 'Vivo', 'Huawei', 'Nokia', 'Google', 'Amazfit', 'JBL', 'Anker', 'Baseus', 'Ugreen',
+          'Lenovo', 'HP', 'Dell', 'ASUS', 'Acer', 'MSI']
+
+
+def _key(name):
+    return name.split('(')[0].strip().lower()
+
+
+def _demo_match(name):
+    from .demo_catalog import BOX, ROWS
+    key = _key(name)
+    for row in ROWS:
+        if _key(row[2]) == key:
+            (cat, box, rname, brand, _p, _d, _q, _w, _c, ram, storage, display, processor, battery, camera,
+             charging, os_, short, highlights, note) = row
+            return {'brand': brand, 'ram': ram, 'storage': storage, 'display': display, 'processor': processor,
+                    'battery': battery, 'camera': camera, 'charging': charging, 'os': os_,
+                    'short_description': short, 'highlights': highlights.replace('|', '\n'),
+                    'in_the_box': BOX[box], 'ai_notes': note}
+    return {}
+
+
+def _guess_brand(name):
+    lowered = name.lower()
+    if 'iphone' in lowered or 'airpods' in lowered or 'macbook' in lowered or 'ipad' in lowered:
+        return 'Apple'
+    return next((b for b in BRANDS if lowered.startswith(b.lower())), '')
+
+
 def fill_product(product):
     """Fill empty detail fields on one product. Returns the list of field names changed."""
     name = product.name.lower()
-    data = next((k for k in KNOWN if any(m in name for m in k['match'])), {})
+    data = next((k for k in KNOWN if any(m in name for m in k['match'])), None) or _demo_match(product.name)
+    if not data.get('brand'):
+        data = {**data, 'brand': _guess_brand(product.name)}
     changed = []
     for field in FIELDS:
         value = data.get(field, '')
@@ -110,6 +165,17 @@ def fill_product(product):
         if value and not getattr(product, field):
             setattr(product, field, value)
             changed.append(field)
+    # Anything still empty: build it from what the product already has
+    if not product.highlights:
+        facts = [product.display, product.processor, product.camera, product.battery, product.charging]
+        facts = [f for f in facts if f]
+        if facts:
+            product.highlights = '\n'.join(facts[:5])
+            changed.append('highlights')
+    if not product.short_description and product.description.strip():
+        text = ' '.join(product.description.split())
+        product.short_description = text if len(text) <= 150 else text[:147].rsplit(' ', 1)[0] + '...'
+        changed.append('short_description')
     return changed
 
 

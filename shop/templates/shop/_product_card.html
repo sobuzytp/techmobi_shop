@@ -26,7 +26,7 @@
         <div class="product-specs">{% if product.ram %}{{ product.ram }}{% endif %}{% if product.ram and product.storage %} &middot; {% endif %}{% if product.storage %}{{ product.storage }}{% endif %}</div>
         {% endif %}
         {% if product.card_chips %}<div class="spec-chips">{% for chip in product.card_chips %}<span>{{ chip }}</span>{% endfor %}</div>{% endif %}
-        {% if product.short_description %}<p class="product-blurb">{{ product.short_description }}</p>{% endif %}
+        {% if product.short_description %}<p class="product-blurb">{{ product.short_description }}</p>{% elif product.description %}<p class="product-blurb">{{ product.description|truncatechars:110 }}</p>{% endif %}
         <div class="mt-auto pt-2">
             <div class="mb-2">
                 <span class="price-tag">Tk {{ product.discounted_price|taka }}</span>

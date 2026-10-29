@@ -1135,3 +1135,100 @@ class ProductDetailTests(TestCase):
         self.assertContains(self.client.get('/admin/shop/product/'), 'Details')
         self.assertContains(self.client.get(f'/admin/shop/product/{self.p.pk}/change/'), 'Notes for the AI assistant')
         self.assertContains(self.client.get('/admin/'), 'img/logo.png')
+
+
+class DemoCatalogTests(TestCase):
+    def test_seed_demo_catalog_is_idempotent_and_removable(self):
+        import tempfile
+        from io import StringIO
+        from django.core.management import call_command
+        with override_settings(MEDIA_ROOT=tempfile.mkdtemp()):
+            call_command('seed_demo_catalog', stdout=StringIO())
+            count = Product.objects.count()
+            self.assertGreaterEqual(count, 30)
+            call_command('seed_demo_catalog', stdout=StringIO())
+            self.assertEqual(Product.objects.count(), count)
+            names = set(Category.objects.values_list('name', flat=True))
+            self.assertTrue({'Laptops', 'MacBook', 'Mobile Phones', 'Tab'} <= names)
+            self.assertTrue(all(p.image for p in Product.objects.all()))
+            self.assertTrue(all(p.completeness[0] >= 7 for p in Product.objects.all()))
+            call_command('seed_demo_catalog', '--remove', stdout=StringIO())
+            self.assertEqual(Product.objects.count(), 0)
+
+    def test_category_icons(self):
+        from .templatetags.shop_extras import category_icon
+        self.assertEqual(category_icon('Air Buds'), 'bi-headphones')
+        self.assertEqual(category_icon('Headphones'), 'bi-headphones')
+        self.assertEqual(category_icon('Laptops'), 'bi-laptop')
+        self.assertEqual(category_icon('MacBook'), 'bi-laptop')
+        self.assertEqual(category_icon('Iphones'), 'bi-phone')
+        self.assertEqual(category_icon('Tab'), 'bi-tablet')
+
+
+class ImportAndAdminTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        get_user_model().objects.create_superuser('boss', password='pw-123456-x')
+        self.client.login(username='boss', password='pw-123456-x')
+
+    def _upload(self, text):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        return self.client.post('/admin/shop/product/import-csv/',
+                                {'file': SimpleUploadedFile('p.csv', text.encode('utf-8-sig'), 'text/csv')})
+
+    def test_import_creates_updates_and_reports_errors(self):
+        csv_text = ("name,category,price,quantity,highlights,faq,sku\n"
+                    "Test Phone,Mobile Phones,\"12,500\",5,Fast|Light,Q: Original?|A: Yes,T-1\n"
+                    "Bad Row,Mobile Phones,abc,1,,,\n"
+                    ",x,1,1,,,\n")
+        resp = self._upload(csv_text)
+        self.assertContains(resp, '1 added')
+        self.assertContains(resp, 'price must be a number')
+        self.assertContains(resp, 'name is missing')
+        p = Product.objects.get(sku='T-1')
+        self.assertEqual(p.price, Decimal('12500'))
+        self.assertEqual(p.highlight_list, ['Fast', 'Light'])
+        self.assertEqual(p.faq_pairs, [('Original?', 'Yes')])
+        resp = self._upload("name,price,sku\nTest Phone,13000,T-1\n")
+        self.assertContains(resp, '1 updated')
+        p.refresh_from_db()
+        self.assertEqual(p.price, Decimal('13000'))
+        self.assertEqual(p.quantity, 5)   # blank cell leaves it alone
+
+    def test_template_download_and_pages(self):
+        resp = self.client.get('/admin/shop/product/import-csv/?template=1')
+        self.assertIn('name,category,brand,price', resp.content.decode())
+        self.assertContains(self.client.get('/admin/shop/product/'), 'Import from CSV')
+        self.assertEqual(self.client.get('/admin/shop/product/add/').status_code, 200)
+
+    def test_import_requires_login(self):
+        self.client.logout()
+        self.assertNotEqual(self.client.get('/admin/shop/product/import-csv/').status_code, 200)
+
+    def test_duplicate_action(self):
+        p = Product.objects.create(name='Orig', price=Decimal('10'), quantity=1, sku='X')
+        self.client.post('/admin/shop/product/', {'action': 'duplicate_products', '_selected_action': [p.pk]})
+        copy = Product.objects.get(name='Orig (copy)')
+        self.assertEqual(copy.sku, '')
+
+
+class CardFallbackTests(TestCase):
+    def test_known_and_demo_names_get_details_and_card_shows_description(self):
+        from .product_seed import fill_all
+        cat = Category.objects.create(name='Tab')
+        pad = Product.objects.create(name='Xiaomi Pad 6 (8GB/256GB)', price=Decimal('36599'), quantity=3, category=cat)
+        buds = Product.objects.create(name='Samsung Galaxy Buds2 Pro', price=Decimal('16599'), quantity=3)
+        plus = Product.objects.create(name='iPhone 16 Plus (128GB)', price=Decimal('115999'), quantity=3)
+        plain = Product.objects.create(name='Mystery Gadget', price=Decimal('100'), quantity=1,
+                                       description='A handy gadget for everyday life that does many things well.')
+        fill_all()
+        for p in (pad, buds, plus, plain):
+            p.refresh_from_db()
+        self.assertEqual(pad.brand, 'Xiaomi')
+        self.assertIn('Snapdragon 870', pad.processor)
+        self.assertEqual(buds.brand, 'Samsung')
+        self.assertTrue(buds.short_description)
+        self.assertIn('A18', plus.processor)
+        self.assertTrue(plain.short_description.startswith('A handy gadget'))
+        html = self.client.get('/products/').content.decode()
+        self.assertIn('A handy gadget', html)
