@@ -1073,3 +1073,65 @@ class ApiTests(TestCase):
         row = [r for r in data if r['name'] == 'Galaxy A15'][0]
         self.assertEqual(row['price'], '18000.00')
         self.assertEqual(row['stock_status'], 'instock')
+
+
+class ProductDetailTests(TestCase):
+    def setUp(self):
+        self.cat = Category.objects.create(name='Phones')
+        self.p = Product.objects.create(
+            name='Galaxy S26 Ultra', brand='Samsung', price=Decimal('100000'), quantity=4, category=self.cat,
+            short_description='Top flagship', highlights='200MP camera\n5000 mAh battery',
+            processor='Snapdragon 8 Elite', extra_specs='Weight: 214 g', in_the_box='Phone\nCable',
+            faq='Q: Is it original?\nA: Yes.\n\nQ: COD?\nA: Yes, only COD.', ai_notes='For camera lovers.')
+
+    def test_parsers(self):
+        self.assertEqual(self.p.highlight_list, ['200MP camera', '5000 mAh battery'])
+        self.assertEqual(self.p.box_list, ['Phone', 'Cable'])
+        self.assertEqual(self.p.extra_spec_pairs, [('Weight', '214 g')])
+        self.assertEqual(self.p.faq_pairs, [('Is it original?', 'Yes.'), ('COD?', 'Yes, only COD.')])
+        self.assertIn('Processor', dict(self.p.specs))
+
+    def test_detail_page_shows_everything(self):
+        html = self.client.get(self.p.get_absolute_url()).content.decode()
+        for text in ['Top flagship', '200MP camera', 'Snapdragon 8 Elite', '214 g', 'In the box',
+                     'Is it original?', 'Cash on Delivery', 'img/logo.png']:
+            self.assertIn(text, html)
+        self.assertNotIn('For camera lovers', html)  # AI notes are not shown to shoppers
+
+    def test_card_on_home_and_list_shows_details(self):
+        html = self.client.get('/products/').content.decode()
+        self.assertIn('Top flagship', html)
+        self.assertIn('Samsung', html)
+
+    def test_api_exposes_details(self):
+        d = self.client.get(f'/api/v1/products/{self.p.pk}/').json()
+        self.assertEqual(d['highlights'][0], '200MP camera')
+        self.assertEqual(d['faq'][0]['answer'], 'Yes.')
+        self.assertEqual(d['in_the_box'], ['Phone', 'Cable'])
+        self.assertEqual(d['ai_notes'], 'For camera lovers.')
+        self.assertIn('Snapdragon 8 Elite', d['details'])
+        flat = self.client.get('/api/v1/products.json').json()[0]
+        self.assertIn('details', flat)
+
+    def test_fill_only_empty_fields(self):
+        from .product_seed import fill_all
+        keep = Product.objects.create(name='iPhone 18 Pro Max', price=Decimal('1'), quantity=1,
+                                      category=self.cat, display='My own display text')
+        fill_all()
+        keep.refresh_from_db()
+        self.assertEqual(keep.display, 'My own display text')
+        self.assertEqual(keep.brand, 'Apple')
+        self.assertIn('A20 Pro', keep.processor)
+        self.p.refresh_from_db()
+        self.assertEqual(self.p.short_description, 'Top flagship')   # not overwritten
+        self.assertTrue(self.p.faq)
+
+    def test_completeness_and_admin(self):
+        filled, total = self.p.completeness
+        self.assertTrue(0 < filled <= total)
+        from django.contrib.auth import get_user_model
+        get_user_model().objects.create_superuser('admin', password='pw-123456-x')
+        self.client.login(username='admin', password='pw-123456-x')
+        self.assertContains(self.client.get('/admin/shop/product/'), 'Details')
+        self.assertContains(self.client.get(f'/admin/shop/product/{self.p.pk}/change/'), 'Notes for the AI assistant')
+        self.assertContains(self.client.get('/admin/'), 'img/logo.png')

@@ -37,10 +37,20 @@ def serialize_product(product, request):
         'quantity': product.quantity,
         'condition': product.condition,
         'warranty_months': product.warranty_months,
+        'sku': product.sku,
+        'short_description': product.short_description,
+        'highlights': product.highlight_list,
         'specs': {
-            'ram': product.ram, 'storage': product.storage, 'display': product.display,
-            'battery': product.battery, 'camera': product.camera, 'color': product.color,
+            'processor': product.processor, 'ram': product.ram, 'storage': product.storage,
+            'display': product.display, 'battery': product.battery, 'charging': product.charging,
+            'camera': product.camera, 'os': product.os, 'network': product.network,
+            'sim': product.sim, 'color': product.color,
         },
+        'extra_specs': {label: value for label, value in product.extra_spec_pairs},
+        'in_the_box': product.box_list,
+        'faq': [{'question': q, 'answer': a} for q, a in product.faq_pairs],
+        'ai_notes': product.ai_notes,
+        'details': product.details_text(),
         'url': _abs(request, product.get_absolute_url()),
         'image': _abs(request, image),
         'updated_at': product.updated_at.isoformat(),
@@ -151,7 +161,7 @@ def product_feed(request):
     writer = csv.writer(response)
     writer.writerow(['id', 'name', 'brand', 'category', 'price', 'final_price', 'in_stock',
                      'quantity', 'condition', 'warranty_months', 'ram', 'storage', 'display',
-                     'battery', 'camera', 'color', 'url', 'image', 'description'])
+                     'battery', 'camera', 'color', 'url', 'image', 'description', 'details'])
     for p in filtered_products(request.GET):
         d = serialize_product(p, request)
         s = d['specs']
@@ -159,7 +169,7 @@ def product_feed(request):
             d['id'], d['name'], d['brand'], d['category'] or '', d['price'], d['final_price'],
             'yes' if d['in_stock'] else 'no', d['quantity'], d['condition'], d['warranty_months'],
             s['ram'], s['storage'], s['display'], s['battery'], s['camera'], s['color'],
-            d['url'], d['image'], d['description'].replace('\n', ' '),
+            d['url'], d['image'], d['description'].replace('\n', ' '), d['details'].replace('\n', ' | '),
         ]])
     return response
 
@@ -181,6 +191,9 @@ def products_flat(request):
             'in_stock': d['in_stock'],
             'image': d['image'], 'images': [d['image']] if d['image'] else [],
             'url': d['url'], 'condition': d['condition'],
+            'short_description': d['short_description'], 'highlights': d['highlights'],
+            'in_the_box': d['in_the_box'], 'faq': d['faq'], 'extra_specs': d['extra_specs'],
+            'ai_notes': d['ai_notes'], 'details': d['details'],
             'warranty_months': d['warranty_months'], **d['specs'],
         })
     return JsonResponse(items, safe=False)

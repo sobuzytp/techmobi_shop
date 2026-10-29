@@ -1,0 +1,6 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% block extrastyle %}{{ block.super }}<link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">{% endblock %}
+{% block branding %}
+<h1 id="site-name"><a href="{% url 'admin:index' %}"><img src="{% static 'img/logo.png' %}" alt="TechMobi" style="height:34px;vertical-align:middle"></a></h1>
+{% endblock %}
