@@ -110,6 +110,17 @@ def fill_product(product):
         if value and not getattr(product, field):
             setattr(product, field, value)
             changed.append(field)
+    # Anything still empty: build it from what the product already has
+    if not product.highlights:
+        facts = [product.display, product.processor, product.camera, product.battery, product.charging]
+        facts = [f for f in facts if f]
+        if facts:
+            product.highlights = '\n'.join(facts[:5])
+            changed.append('highlights')
+    if not product.short_description and product.description.strip():
+        text = ' '.join(product.description.split())
+        product.short_description = text if len(text) <= 150 else text[:147].rsplit(' ', 1)[0] + '...'
+        changed.append('short_description')
     return changed
 
 

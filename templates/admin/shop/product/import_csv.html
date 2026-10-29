@@ -1,0 +1,24 @@
+{% extends "admin/base_site.html" %}
+{% block breadcrumbs %}<div class="breadcrumbs"><a href="{% url 'admin:index' %}">Home</a> &rsaquo; <a href="{% url 'admin:shop_product_changelist' %}">Products</a> &rsaquo; Import</div>{% endblock %}
+{% block content %}
+<div id="content-main">
+  <p>Add or update many products at once. Make an Excel sheet, then <b>Save as &rarr; CSV UTF-8</b> and upload it here.
+  A row whose <b>sku</b> (or, if no sku, <b>name</b>) already exists updates that product; blank cells are left unchanged.</p>
+  <p><a href="?template=1" class="button">Download a sample CSV</a></p>
+  {% if result %}
+  <div style="padding:12px;border:1px solid #198754;background:#e8f5ee;margin:12px 0;">
+    <b>Done:</b> {{ result.created }} added, {{ result.updated }} updated.
+    {% if result.errors %}<br><b>{{ result.errors|length }}{% if result.more %}+{% endif %} row(s) skipped:</b>
+    <ul>{% for e in result.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% if result.more %}<p>...and {{ result.more }} more.</p>{% endif %}{% endif %}
+  </div>
+  {% endif %}
+  <form method="post" enctype="multipart/form-data">{% csrf_token %}
+    <p><input type="file" name="file" accept=".csv" required></p>
+    <p><input type="submit" value="Import" class="default"></p>
+  </form>
+  <h3>Columns</h3>
+  <p><code>{{ columns|join:", " }}</code></p>
+  <p>Only <b>name</b> is required (plus <b>price</b> for new products). In <b>highlights, extra_specs, in_the_box</b> separate items with <code>|</code>.
+  In <b>faq</b> write <code>Q: question|A: answer|Q: next question|A: next answer</code>.</p>
+</div>
+{% endblock %}

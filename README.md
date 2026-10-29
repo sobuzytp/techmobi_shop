@@ -204,3 +204,12 @@ Sending the catalogue to aijobab (set these in cPanel > Setup Python App, never 
 
 The payload is `{"source", "shop", "products": [...]}`; adjust `build_payload` in
 `shop/management/commands/sync_catalog.py` if aijobab expects a different shape.
+
+## Adding many products quickly
+
+- `python manage.py seed_demo_catalog` adds ~38 sample products (all categories, incl. Laptops and MacBook) with
+  placeholder pictures; `--remove` deletes them again. Safe to run twice.
+- `python manage.py fill_product_details --images` fills empty detail fields on existing products and adds a
+  placeholder picture where there is none.
+- Admin > Products > **Import from CSV** adds/updates many products from a spreadsheet (sample file downloadable there).
+- Admin > Products > select products > **Duplicate** to copy a product, then change what differs.

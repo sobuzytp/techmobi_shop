@@ -36,10 +36,11 @@ def taka(value):
 
 
 ICONS = [
-    (('phone', 'mobile', 'smartphone'), 'bi-phone'),
-    (('tablet', 'ipad', 'tab'), 'bi-tablet'),
+    (('earbud', 'air bud', 'airbud', 'bud', 'headphone', 'headset', 'audio', 'speaker', 'airpod'), 'bi-headphones'),
     (('watch', 'band'), 'bi-smartwatch'),
-    (('earbud', 'headphone', 'headset', 'audio', 'speaker', 'airpod'), 'bi-headphones'),
+    (('laptop', 'macbook', 'notebook', 'computer'), 'bi-laptop'),
+    (('tablet', 'ipad', 'tab'), 'bi-tablet'),
+    (('phone', 'mobile'), 'bi-phone'),
     (('charger', 'power', 'battery', 'cable'), 'bi-lightning-charge'),
     (('case', 'cover', 'protector', 'glass'), 'bi-shield-check'),
     (('accessor',), 'bi-plug'),
