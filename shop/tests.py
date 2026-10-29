@@ -1210,3 +1210,25 @@ class ImportAndAdminTests(TestCase):
         self.client.post('/admin/shop/product/', {'action': 'duplicate_products', '_selected_action': [p.pk]})
         copy = Product.objects.get(name='Orig (copy)')
         self.assertEqual(copy.sku, '')
+
+
+class CardFallbackTests(TestCase):
+    def test_known_and_demo_names_get_details_and_card_shows_description(self):
+        from .product_seed import fill_all
+        cat = Category.objects.create(name='Tab')
+        pad = Product.objects.create(name='Xiaomi Pad 6 (8GB/256GB)', price=Decimal('36599'), quantity=3, category=cat)
+        buds = Product.objects.create(name='Samsung Galaxy Buds2 Pro', price=Decimal('16599'), quantity=3)
+        plus = Product.objects.create(name='iPhone 16 Plus (128GB)', price=Decimal('115999'), quantity=3)
+        plain = Product.objects.create(name='Mystery Gadget', price=Decimal('100'), quantity=1,
+                                       description='A handy gadget for everyday life that does many things well.')
+        fill_all()
+        for p in (pad, buds, plus, plain):
+            p.refresh_from_db()
+        self.assertEqual(pad.brand, 'Xiaomi')
+        self.assertIn('Snapdragon 870', pad.processor)
+        self.assertEqual(buds.brand, 'Samsung')
+        self.assertTrue(buds.short_description)
+        self.assertIn('A18', plus.processor)
+        self.assertTrue(plain.short_description.startswith('A handy gadget'))
+        html = self.client.get('/products/').content.decode()
+        self.assertIn('A handy gadget', html)
